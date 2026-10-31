@@ -1,40 +1,118 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Lock, Mail, User, ShieldCheck, ArrowRight, Check } from 'lucide-react';
+import { X, Lock, Mail, User, ShieldCheck, ArrowRight, CreditCard, Phone, MapPin, AlertCircle } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
   initialMode: 'login' | 'signup';
   onClose: () => void;
-  onSuccess: (userData: { name: string; email: string; isConnected: boolean }) => void;
+  onSuccess: (userData: { name: string; email: string; isConnected: boolean; role: string; token: string; ontology_id?: string }) => void;
 }
 
 export function AuthModal({ isOpen, initialMode, onClose, onSuccess }: AuthModalProps) {
   const [mode, setMode] = useState<'login' | 'signup'>(initialMode);
-  const [email, setEmail] = useState('alexandre.dupont@email.fr');
-  const [password, setPassword] = useState('••••••••••••');
-  const [name, setName] = useState('Alexandre Dupont');
-  const [housingType, setHousingType] = useState('Propriétaire occupant');
-  const [rememberMe, setRememberMe] = useState(true);
+  const [role, setRole] = useState<'Assure' | 'Agent' | 'Expert' | 'Beneficiaire'>('Assure');
+  const [email, setEmail] = useState('assure1@hestia.fr');
+  const [password, setPassword] = useState('password123');
+  const [nom, setNom] = useState('BenAli');
+  const [prenom, setPrenom] = useState('Karim');
+  const [cin, setCin] = useState('08123456');
+  const [telephone, setTelephone] = useState('20123456');
+  const [adresse, setAdresse] = useState('Tunis, Ariana');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSuccess({
-      name: mode === 'signup' ? name : 'Alexandre Dupont',
-      email,
-      isConnected: true,
-    });
-    onClose();
+    setError(null);
+    setLoading(true);
+
+    try {
+      if (mode === 'signup') {
+        const res = await fetch(`${apiUrl}/api/ontology/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email,
+            password,
+            nom,
+            prenom,
+            cin,
+            telephone,
+            adresse,
+            role,
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || "Erreur lors de l'inscription");
+        }
+        const data = await res.json();
+        onSuccess({
+          name: `${data.user.prenom} ${data.user.nom}`,
+          email: data.user.email,
+          isConnected: true,
+          role: data.user.role,
+          token: data.token,
+          ontology_id: data.user.ontology_id,
+        });
+        onClose();
+      } else {
+        const res = await fetch(`${apiUrl}/api/ontology/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || "Identifiants incorrects");
+        }
+        const data = await res.json();
+        onSuccess({
+          name: `${data.user.prenom} ${data.user.nom}`,
+          email: data.user.email,
+          isConnected: true,
+          role: data.user.role,
+          token: data.token,
+          ontology_id: data.user.ontology_id,
+        });
+        onClose();
+      }
+    } catch (err: any) {
+      setError(err.message || "Une erreur est survenue.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const setDemoAccount = (accType: 'assure' | 'agent' | 'expert' | 'admin') => {
+    setMode('login');
+    setError(null);
+    if (accType === 'assure') {
+      setEmail('assure1@hestia.fr');
+      setPassword('password123');
+    } else if (accType === 'agent') {
+      setEmail('agent1@hestia.fr');
+      setPassword('password123');
+    } else if (accType === 'expert') {
+      setEmail('expert1@hestia.fr');
+      setPassword('password123');
+    } else {
+      setEmail('admin@hestia.fr');
+      setPassword('admin123');
+    }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
-        {/* Header decoration */}
-        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 p-6 text-white text-center relative">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-700 via-indigo-700 to-indigo-900 p-6 text-white text-center relative">
           <button
             onClick={onClose}
             className="absolute right-4 top-4 rounded-full bg-white/10 p-1.5 text-white hover:bg-white/20 transition-colors"
@@ -45,12 +123,10 @@ export function AuthModal({ isOpen, initialMode, onClose, onSuccess }: AuthModal
             <ShieldCheck className="h-7 w-7 text-white" />
           </div>
           <h2 className="text-xl font-bold tracking-tight font-serif">
-            {mode === 'login' ? 'Espace Assuré Hestia' : 'Rejoindre Hestia Assur'}
+            {mode === 'login' ? 'Authentification Sécurisée' : 'Inscription — Module Personne'}
           </h2>
-          <p className="text-xs text-emerald-100 mt-1">
-            {mode === 'login' 
-              ? 'Accédez à la gestion de vos habitations et déclarations'
-              : 'Assurez votre logement en moins de 3 minutes'}
+          <p className="text-xs text-blue-100 mt-1">
+            Gestion sécurisée avec rôles : Assuré, Agent, Expert & Admin
           </p>
         </div>
 
@@ -58,137 +134,214 @@ export function AuthModal({ isOpen, initialMode, onClose, onSuccess }: AuthModal
         <div className="flex border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950">
           <button
             type="button"
-            onClick={() => setMode('login')}
+            onClick={() => {
+              setMode('login');
+              setError(null);
+            }}
             className={`flex-1 py-3 text-center text-xs font-semibold transition-all ${
               mode === 'login'
-                ? 'border-b-2 border-emerald-600 text-emerald-700 bg-white dark:bg-zinc-900 dark:text-emerald-400'
+                ? 'border-b-2 border-blue-600 text-blue-700 bg-white dark:bg-zinc-900 dark:text-blue-400'
                 : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400'
             }`}
           >
-            Se Connecter
+            Connexion
           </button>
           <button
             type="button"
-            onClick={() => setMode('signup')}
+            onClick={() => {
+              setMode('signup');
+              setError(null);
+            }}
             className={`flex-1 py-3 text-center text-xs font-semibold transition-all ${
               mode === 'signup'
-                ? 'border-b-2 border-emerald-600 text-emerald-700 bg-white dark:bg-zinc-900 dark:text-emerald-400'
+                ? 'border-b-2 border-blue-600 text-blue-700 bg-white dark:bg-zinc-900 dark:text-blue-400'
                 : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400'
             }`}
           >
-            Créer un Compte
+            Inscription (Créer individu)
           </button>
         </div>
 
+        {/* Error message */}
+        {error && (
+          <div className="m-4 p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-3.5 max-h-[70vh] overflow-y-auto">
           {mode === 'signup' && (
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                Nom complet
-              </label>
-              <div className="relative">
-                <User className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400" />
+            <>
+              <div>
+                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  Rôle dans l'Ontologie (Sous-classe de Personne)
+                </label>
+                <select
+                  value={role}
+                  onChange={(e) => setRole(e.target.value as any)}
+                  className="w-full rounded-xl border border-zinc-300 bg-white py-2 px-3 text-xs text-zinc-900 focus:border-blue-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                >
+                  <option value="Assure">Assure (Client souscripteur)</option>
+                  <option value="Agent">Agent (Gestionnaire contrats)</option>
+                  <option value="Expert">Expert (Expert d'assurance)</option>
+                  <option value="Beneficiaire">Beneficiaire (Bénéficiaire)</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                    Prénom
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={prenom}
+                    onChange={(e) => setPrenom(e.target.value)}
+                    placeholder="Karim"
+                    className="w-full rounded-xl border border-zinc-300 bg-white py-2 px-3 text-xs text-zinc-900 focus:border-blue-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                    Nom
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={nom}
+                    onChange={(e) => setNom(e.target.value)}
+                    placeholder="BenAli"
+                    className="w-full rounded-xl border border-zinc-300 bg-white py-2 px-3 text-xs text-zinc-900 focus:border-blue-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                    CIN
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={cin}
+                    onChange={(e) => setCin(e.target.value)}
+                    placeholder="08123456"
+                    className="w-full rounded-xl border border-zinc-300 bg-white py-2 px-3 text-xs text-zinc-900 focus:border-blue-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                    Téléphone
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={telephone}
+                    onChange={(e) => setTelephone(e.target.value)}
+                    placeholder="20123456"
+                    className="w-full rounded-xl border border-zinc-300 bg-white py-2 px-3 text-xs text-zinc-900 focus:border-blue-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  Adresse
+                </label>
                 <input
                   type="text"
                   required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Jean Dupont"
-                  className="w-full rounded-xl border border-zinc-300 bg-white py-2 pl-9 pr-3 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  value={adresse}
+                  onChange={(e) => setAdresse(e.target.value)}
+                  placeholder="Tunis, Ariana"
+                  className="w-full rounded-xl border border-zinc-300 bg-white py-2 px-3 text-xs text-zinc-900 focus:border-blue-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                 />
               </div>
-            </div>
+            </>
           )}
 
           <div>
-            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+            <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
               Adresse e-mail
             </label>
             <div className="relative">
-              <Mail className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400" />
+              <Mail className="absolute left-3 top-2.5 h-3.5 w-3.5 text-zinc-400" />
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="assure@exemple.com"
-                className="w-full rounded-xl border border-zinc-300 bg-white py-2 pl-9 pr-3 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                placeholder="assure@hestia.fr"
+                className="w-full rounded-xl border border-zinc-300 bg-white py-2 pl-9 pr-3 text-xs text-zinc-900 focus:border-blue-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+            <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
               Mot de passe
             </label>
             <div className="relative">
-              <Lock className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400" />
+              <Lock className="absolute left-3 top-2.5 h-3.5 w-3.5 text-zinc-400" />
               <input
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••••••"
-                className="w-full rounded-xl border border-zinc-300 bg-white py-2 pl-9 pr-3 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                className="w-full rounded-xl border border-zinc-300 bg-white py-2 pl-9 pr-3 text-xs text-zinc-900 focus:border-blue-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
               />
             </div>
-          </div>
-
-          {mode === 'signup' && (
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                Statut d'occupation
-              </label>
-              <select
-                value={housingType}
-                onChange={(e) => setHousingType(e.target.value)}
-                className="w-full rounded-xl border border-zinc-300 bg-white py-2 px-3 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-              >
-                <option>Propriétaire occupant</option>
-                <option>Locataire</option>
-                <option>Propriétaire non occupant (PNO)</option>
-                <option>Colocataire</option>
-              </select>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between text-xs">
-            <label className="flex items-center gap-2 cursor-pointer text-zinc-600 dark:text-zinc-400">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500 dark:border-zinc-700"
-              />
-              <span>Se souvenir de moi</span>
-            </label>
-            {mode === 'login' && (
-              <a href="#" className="text-emerald-600 hover:underline dark:text-emerald-400">
-                Mot de passe oublié ?
-              </a>
-            )}
           </div>
 
           <button
             type="submit"
-            className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-600/30 hover:opacity-95 transition-opacity"
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 py-2.5 text-xs font-bold text-white shadow-md hover:opacity-95 transition-opacity"
           >
-            <span>{mode === 'login' ? 'Accéder à mon espace' : 'Finaliser mon inscription'}</span>
+            <span>{loading ? 'Traitement sécurisé...' : (mode === 'login' ? 'Se Connecter' : 'Créer mon compte & individu')}</span>
             <ArrowRight className="h-4 w-4" />
           </button>
 
-          <div className="pt-2 text-center">
-            <button
-              type="button"
-              onClick={() => {
-                setName('Alexandre Dupont');
-                setEmail('alexandre.dupont@email.fr');
-              }}
-              className="text-[11px] text-zinc-500 hover:text-emerald-600 dark:text-zinc-400 underline"
-            >
-              Remplir avec le compte démo (Alexandre Dupont)
-            </button>
+          {/* Quick Demo Accounts */}
+          <div className="pt-2 text-center space-y-1.5 border-t border-zinc-100 dark:border-zinc-800">
+            <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider block">
+              Comptes Démo Protégé (1 clic) :
+            </span>
+            <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+              <button
+                type="button"
+                onClick={() => setDemoAccount('assure')}
+                className="rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 py-1 px-2 font-medium hover:bg-emerald-100 text-left"
+              >
+                👤 Assure1 (BenAli Karim)
+              </button>
+              <button
+                type="button"
+                onClick={() => setDemoAccount('agent')}
+                className="rounded-lg bg-blue-50 text-blue-800 border border-blue-200 py-1 px-2 font-medium hover:bg-blue-100 text-left"
+              >
+                💼 Agent1 (Trabelsi Sami)
+              </button>
+              <button
+                type="button"
+                onClick={() => setDemoAccount('expert')}
+                className="rounded-lg bg-amber-50 text-amber-800 border border-amber-200 py-1 px-2 font-medium hover:bg-amber-100 text-left"
+              >
+                🔍 Expert1 (Gharbi Nadia)
+              </button>
+              <button
+                type="button"
+                onClick={() => setDemoAccount('admin')}
+                className="rounded-lg bg-indigo-50 text-indigo-800 border border-indigo-200 py-1 px-2 font-medium hover:bg-indigo-100 text-left"
+              >
+                ⚙️ Admin (Gestionnaire)
+              </button>
+            </div>
           </div>
         </form>
       </div>

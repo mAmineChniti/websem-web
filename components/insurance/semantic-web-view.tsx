@@ -1,641 +1,287 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { 
-  Network, 
-  Sparkles, 
-  Send, 
-  Terminal, 
-  Database, 
-  FileCode, 
-  CheckCircle2, 
-  BookOpen, 
-  Code2, 
-  Download, 
-  Layers,
-  ArrowRight,
-  RefreshCw,
-  Search,
-  Filter
+import {
+  Search, Sparkles, Send, Users, FileCheck2, User,
+  Phone, MapPin, CreditCard, Calendar, DollarSign,
+  Shield, RefreshCw, ChevronRight, CheckCircle2,
+  AlertCircle,
 } from 'lucide-react';
 
-interface OntologyStats {
-  triples_count: number;
-  classes_count: number;
-  object_properties_count: number;
-  datatype_properties_count: number;
-  individuals_count: number;
-  ontology_uri: string;
-}
-
-interface NLPResponse {
-  question: string;
-  tokens: string[];
-  intent: string;
-  sparql_query: string;
-  explanation: string[];
-  results: Record<string, any>[];
-  count: number;
-  vars: string[];
-}
-
 const PRESET_QUESTIONS = [
-  "Quels sont les sinistres incendie ?",
-  "Quel est le montant d'indemnisation versé ?",
-  "Qui sont les assurés et leurs coordonnées ?",
-  "Quels contrats sont enregistrés ?",
-  "Quelles sont les garanties disponibles ?",
-  "Quels sinistres ont été traités par un expert ?",
-  "Quelles habitations sont assurées ?",
+  "Qui sont les assures enregistres ?",
+  "Quels sont les contrats proprietaire ?",
+  "Quels sont les contrats locataire ?",
+  "Liste des agents d'assurance ?",
+  "Liste des experts enregistres ?",
+  "Montant des primes par contrat ?",
 ];
 
-const PRESET_SPARQL_QUERIES = [
-  {
-    title: "1. Tous les sinistres et leurs experts",
-    query: `SELECT ?sinistre ?typeSinistre ?date ?lieu ?description ?expert WHERE {
-    ?sinistre a ?typeSinistre .
-    FILTER(contains(str(?typeSinistre), 'Sinistre') && ?typeSinistre != owl:NamedIndividual)
-    OPTIONAL { ?sinistre as:dateSinistre ?date }
-    OPTIONAL { ?sinistre as:lieuSinistre ?lieu }
-    OPTIONAL { ?sinistre as:descriptionSinistre ?description }
-    OPTIONAL { ?sinistre as:expertisePar ?expert }
-}`
-  },
-  {
-    title: "2. Indemnisations et montants versés",
-    query: `SELECT ?sinistre ?indemnisation ?montantIndemnise WHERE {
-    ?sinistre as:donneLieuA ?indemnisation .
-    OPTIONAL { ?indemnisation as:montantIndemnise ?montantIndemnise }
-}`
-  },
-  {
-    title: "3. Assurés et leurs contrats",
-    query: `SELECT ?assure ?contrat ?numero ?prime WHERE {
-    ?contrat as:aPourAssure ?assure .
-    OPTIONAL { ?contrat as:numeroContrat ?numero }
-    OPTIONAL { ?contrat as:montantPrime ?prime }
-}`
-  },
-  {
-    title: "4. Hiérarchie des classes d'assurance",
-    query: `SELECT DISTINCT ?classe ?sousClasse WHERE {
-    ?sousClasse rdfs:subClassOf ?classe .
-    FILTER(!isBlank(?classe) && !isBlank(?sousClasse) && ?classe != owl:Thing)
-} LIMIT 20`
-  }
-];
+function isContratRow(row: any): boolean {
+  const str = JSON.stringify(row).toLowerCase();
+  return (str.includes('contrat') || str.includes('prime') || str.includes('numero')) && !str.includes('cin') && !str.includes('telephone');
+}
 
-export function SemanticWebView() {
-  const [activeTab, setActiveTab] = useState<'nlp' | 'sparql' | 'ontology'>('nlp');
-  const [stats, setStats] = useState<OntologyStats | null>(null);
-  const [loadingStats, setLoadingStats] = useState(false);
+function PersonCard({ data }: { data: any }) {
+  const raw = String(data.assure || data.agent || data.expert || data.personne || data.type || '');
+  const kind = ['Assure','Agent','Expert','Beneficiaire'].find(k => raw.includes(k)) || 'Assure';
+  const map: any = {
+    Assure:       { label: 'Assure',       color: 'blue' },
+    Agent:        { label: 'Agent',        color: 'violet' },
+    Expert:       { label: 'Expert',       color: 'amber' },
+    Beneficiaire: { label: 'Beneficiaire', color: 'emerald' },
+  };
+  const m = map[kind];
+  const bgClass: any  = { blue:'bg-blue-50 border-blue-200', violet:'bg-violet-50 border-violet-200', amber:'bg-amber-50 border-amber-200', emerald:'bg-emerald-50 border-emerald-200' };
+  const bdgClass: any = { blue:'bg-blue-100 text-blue-800', violet:'bg-violet-100 text-violet-800', amber:'bg-amber-100 text-amber-800', emerald:'bg-emerald-100 text-emerald-800' };
+  const nom = [data.prenom, data.nom].filter(Boolean).join(' ') || '-';
+  return (
+    <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${bgClass[m.color]}`}>
+      <div className="flex items-center justify-between">
+        <span className="font-bold text-sm text-zinc-900">{nom}</span>
+        <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${bdgClass[m.color]}`}>{m.label}</span>
+      </div>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-zinc-600 mt-1">
+        {data.cin && <span className="flex items-center gap-1.5"><CreditCard className="h-3 w-3 opacity-60" />CIN : <strong className="text-zinc-800">{data.cin}</strong></span>}
+        {data.telephone && <span className="flex items-center gap-1.5"><Phone className="h-3 w-3 opacity-60" />Tel : <strong className="text-zinc-800">{data.telephone}</strong></span>}
+        {data.adresse && <span className="col-span-2 flex items-center gap-1.5"><MapPin className="h-3 w-3 opacity-60" /><strong className="text-zinc-800">{data.adresse}</strong></span>}
+      </div>
+    </div>
+  );
+}
 
-  // NLP State
-  const [question, setQuestion] = useState(PRESET_QUESTIONS[0]);
-  const [nlpLoading, setNlpLoading] = useState(false);
-  const [nlpResult, setNlpResult] = useState<NLPResponse | null>(null);
-  const [nlpError, setNlpError] = useState<string | null>(null);
+function ContratCard({ data }: { data: any }) {
+  const raw = String(data.typeContrat || data.contrat || '');
+  const kind = ['Proprietaire','Locataire','Copropriete'].find(k => raw.includes(k)) || 'Proprietaire';
+  const map: any = {
+    Proprietaire: { label: 'Proprietaire', color: 'blue' },
+    Locataire:    { label: 'Locataire',    color: 'violet' },
+    Copropriete:  { label: 'Copropriete',  color: 'emerald' },
+  };
+  const m = map[kind];
+  const bgClass: any  = { blue:'bg-blue-50 border-blue-200', violet:'bg-violet-50 border-violet-200', emerald:'bg-emerald-50 border-emerald-200' };
+  const bdgClass: any = { blue:'bg-blue-100 text-blue-800', violet:'bg-violet-100 text-violet-800', emerald:'bg-emerald-100 text-emerald-800' };
+  const numero = data.numeroContrat || String(data.contrat || '').split('#').pop() || '-';
+  const prime  = data.montantPrime ? `${data.montantPrime} DT` : null;
+  const assure = data.assure ? String(data.assure).split('#').pop() : null;
+  return (
+    <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${bgClass[m.color]}`}>
+      <div className="flex items-center justify-between">
+        <span className="font-bold text-sm text-zinc-900">Contrat N {numero}</span>
+        <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${bdgClass[m.color]}`}>{m.label}</span>
+      </div>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-zinc-600 mt-1">
+        {prime  && <span className="flex items-center gap-1.5"><DollarSign className="h-3 w-3 opacity-60" />Prime : <strong className="text-zinc-800">{prime}</strong></span>}
+        {assure && <span className="flex items-center gap-1.5"><User className="h-3 w-3 opacity-60" />Assure : <strong className="text-zinc-800">{assure}</strong></span>}
+        {data.dateDebut && <span className="flex items-center gap-1.5"><Calendar className="h-3 w-3 opacity-60" />Debut : <strong className="text-zinc-800">{data.dateDebut}</strong></span>}
+        {data.dateFin   && <span className="flex items-center gap-1.5"><Calendar className="h-3 w-3 opacity-60" />Fin : <strong className="text-zinc-800">{data.dateFin}</strong></span>}
+      </div>
+    </div>
+  );
+}
 
-  // Custom SPARQL State
-  const [customSparql, setCustomSparql] = useState(PRESET_SPARQL_QUERIES[0].query);
-  const [sparqlLoading, setSparqlLoading] = useState(false);
-  const [sparqlResult, setSparqlResult] = useState<any>(null);
-  const [sparqlError, setSparqlError] = useState<string | null>(null);
+export function SemanticWebView({ userRole = 'Admin' }: { userRole?: string }) {
+  const [question, setQuestion] = useState('');
+  const [loading, setLoading]   = useState(false);
+  const [result, setResult]     = useState<any>(null);
+  const [error, setError]       = useState<string | null>(null);
+  const [stats, setStats]       = useState<any>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-  const fetchStats = async () => {
-    setLoadingStats(true);
-    try {
-      const res = await fetch(`${apiUrl}/api/ontology/stats`);
-      if (res.ok) {
-        const data = await res.json();
-        setStats(data);
-      }
-    } catch (err) {
-      console.warn("Could not reach backend API for ontology stats:", err);
-    } finally {
-      setLoadingStats(false);
-    }
-  };
-
   useEffect(() => {
-    fetchStats();
-    // Run initial NLP query
-    handleAskNLP(PRESET_QUESTIONS[0]);
+    fetch(`${apiUrl}/api/ontology/stats`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => d && setStats(d))
+      .catch(() => {});
   }, []);
 
-  const handleAskNLP = async (qToSend?: string) => {
-    const q = qToSend || question;
+  const askQuestion = async (q: string) => {
     if (!q.trim()) return;
-    setNlpLoading(true);
-    setNlpError(null);
+    setQuestion(q);
+    setLoading(true);
+    setError(null);
+    setResult(null);
     try {
       const res = await fetch(`${apiUrl}/api/ontology/nlp/ask`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: q }),
       });
-      if (!res.ok) {
-        throw new Error(`Erreur HTTP: ${res.status}`);
-      }
-      const data = await res.json();
-      setNlpResult(data);
-    } catch (err: any) {
-      setNlpError(err.message || "Erreur lors de la communication avec le module NLP.");
+      if (!res.ok) throw new Error(`Erreur serveur (${res.status})`);
+      setResult(await res.json());
+    } catch {
+      setError('Impossible de joindre le serveur. Verifiez que le backend est demarre.');
     } finally {
-      setNlpLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleExecuteSparql = async () => {
-    if (!customSparql.trim()) return;
-    setSparqlLoading(true);
-    setSparqlError(null);
-    try {
-      const res = await fetch(`${apiUrl}/api/ontology/sparql`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: customSparql }),
-      });
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.detail || `Erreur HTTP: ${res.status}`);
-      }
-      const data = await res.json();
-      setSparqlResult(data);
-    } catch (err: any) {
-      setSparqlError(err.message || "Erreur lors de l'exécution de la requête SPARQL.");
-    } finally {
-      setSparqlLoading(false);
-    }
-  };
+  const rows: any[]  = result?.results || [];
+  const personRows   = rows.filter((r: any) => !isContratRow(r));
+  const contratRows  = rows.filter((r: any) => isContratRow(r));
+
+  // Assure cannot access this module
+  if (userRole === 'Assure') {
+    return (
+      <div className="rounded-3xl border border-zinc-200 bg-white p-10 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <Shield className="mx-auto h-12 w-12 text-zinc-300 dark:text-zinc-700 mb-4" />
+        <h2 className="text-lg font-bold text-zinc-700 dark:text-zinc-300 mb-2">Acces non autorise</h2>
+        <p className="text-sm text-zinc-500">La recherche intelligente est reservee aux agents, experts et administrateurs.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Top Banner: Web Sémantique & Ontologie */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-900 via-indigo-950 to-zinc-950 p-6 sm:p-8 text-white shadow-xl">
-        <div className="relative z-10 max-w-3xl space-y-3">
+      {/* Banner */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-900 via-indigo-950 to-slate-900 p-6 sm:p-8 text-white shadow-xl">
+        <div className="relative z-10 max-w-2xl space-y-3">
           <div className="inline-flex items-center gap-2 rounded-full bg-blue-500/20 px-3 py-1 text-xs font-semibold text-blue-200 border border-blue-400/30">
-            <Network className="h-3.5 w-3.5 text-blue-300" />
-            <span>Projet Web Sémantique — Ontologie Protégé & Moteur SPARQL</span>
+            <Sparkles className="h-3.5 w-3.5 text-blue-300" />
+            <span>Moteur de Recherche Intelligent</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-serif text-white">
-            Moteur Sémantique & Traducteur NLP $\rightarrow$ SPARQL
+            Recherche en Langage Naturel
           </h1>
-          <p className="text-xs sm:text-sm text-blue-100/90 leading-relaxed">
-            Chargement direct de l'ontologie d'assurance habitation (<code className="rounded bg-white/10 px-1 py-0.5 text-blue-200">assurance.rdf</code>) avec <strong className="text-white">rdflib</strong>, exécution de requêtes SPARQL et traduction de questions en langage naturel via <strong className="text-white">NLTK</strong> sans API de LLM tierce.
+          <p className="text-xs sm:text-sm text-blue-100/80 leading-relaxed">
+            Posez votre question en francais pour interroger la base de donnees{' '}
+            <strong className="text-white">Personnes</strong> et{' '}
+            <strong className="text-white">Contrats</strong> d'assurance habitation.
           </p>
-
-          <div className="pt-2 flex flex-wrap gap-2 text-xs">
-            <a
-              href="/assurance.rdf"
-              download="assurance.rdf"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-white/10 px-3 py-1.5 font-semibold text-white backdrop-blur hover:bg-white/20 transition-colors border border-white/20"
-            >
-              <Download className="h-3.5 w-3.5 text-blue-300" />
-              <span>Télécharger l'ontologie RDF/XML</span>
-            </a>
-            <button
-              onClick={fetchStats}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600/60 px-3 py-1.5 font-semibold text-white hover:bg-blue-600 transition-colors"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${loadingStats ? 'animate-spin' : ''}`} />
-              <span>Rafraîchir les métriques</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="absolute right-6 bottom-4 hidden lg:block opacity-10">
-          <Database className="h-44 w-44 text-white" />
-        </div>
-      </div>
-
-      {/* Ontology Metrics Cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-          <span className="text-[11px] font-medium text-zinc-500">Triplets RDF</span>
-          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">
-            {stats?.triples_count || 398}
-          </div>
-          <span className="text-[10px] text-zinc-400">Graphe parsé XML</span>
-        </div>
-
-        <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-          <span className="text-[11px] font-medium text-zinc-500">Classes OWL</span>
-          <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-50 mt-1">
-            {stats?.classes_count || 47}
-          </div>
-          <span className="text-[10px] text-zinc-400">Sinistre, Personne, etc.</span>
-        </div>
-
-        <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-          <span className="text-[11px] font-medium text-zinc-500">Object Properties</span>
-          <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
-            {stats?.object_properties_count || 13}
-          </div>
-          <span className="text-[10px] text-zinc-400">Relations inter-classes</span>
-        </div>
-
-        <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-          <span className="text-[11px] font-medium text-zinc-500">Data Properties</span>
-          <div className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">
-            {stats?.datatype_properties_count || 25}
-          </div>
-          <span className="text-[10px] text-zinc-400">Attributs & valeurs</span>
-        </div>
-
-        <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 col-span-2 sm:col-span-1">
-          <span className="text-[11px] font-medium text-zinc-500">Individus</span>
-          <div className="text-2xl font-bold text-purple-600 dark:text-purple-400 mt-1">
-            {stats?.individuals_count || 35}
-          </div>
-          <span className="text-[10px] text-zinc-400">Instances créées</span>
-        </div>
-      </div>
-
-      {/* Sub-tabs: NLP Translator / SPARQL Console / Structure Ontologie */}
-      <div className="flex border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-2xl p-1 shadow-sm">
-        <button
-          onClick={() => setActiveTab('nlp')}
-          className={`flex-1 py-2.5 px-4 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
-            activeTab === 'nlp'
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400'
-          }`}
-        >
-          <Sparkles className="h-4 w-4" />
-          <span>Traducteur Intelligent (NLP/TALN $\rightarrow$ SPARQL)</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('sparql')}
-          className={`flex-1 py-2.5 px-4 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
-            activeTab === 'sparql'
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400'
-          }`}
-        >
-          <Terminal className="h-4 w-4" />
-          <span>Éditeur & Console SPARQL</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('ontology')}
-          className={`flex-1 py-2.5 px-4 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
-            activeTab === 'ontology'
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400'
-          }`}
-        >
-          <Layers className="h-4 w-4" />
-          <span>Structure de l'Ontologie Protégé</span>
-        </button>
-      </div>
-
-      {/* TAB 1: NLP TRANSLATOR */}
-      {activeTab === 'nlp' && (
-        <div className="space-y-5">
-          {/* Preset question chips */}
-          <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 space-y-3">
-            <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider block">
-              Questions Types pour la Démonstration :
-            </span>
-            <div className="flex flex-wrap gap-2">
-              {PRESET_QUESTIONS.map((q, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => {
-                    setQuestion(q);
-                    handleAskNLP(q);
-                  }}
-                  className="rounded-xl border border-blue-200 bg-blue-50/60 px-3 py-1.5 text-xs font-semibold text-blue-900 hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300 transition-all text-left"
-                >
-                  {q}
-                </button>
+          {stats && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {[
+                `${stats.total_triples ?? '-'} triplets RDF`,
+                `${stats.total_personnes ?? '-'} personnes`,
+                `${stats.total_contrats ?? '-'} contrats`,
+              ].map((s, i) => (
+                <span key={i} className="inline-flex items-center rounded-full border border-blue-400/30 bg-blue-500/20 px-2.5 py-1 text-[11px] font-semibold text-white">{s}</span>
               ))}
             </div>
+          )}
+        </div>
+        <div className="absolute right-6 bottom-4 hidden lg:block opacity-5">
+          <Search className="h-52 w-52 text-white" />
+        </div>
+      </div>
 
-            {/* Natural language input bar */}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleAskNLP();
-              }}
-              className="pt-2 flex items-center gap-2"
-            >
-              <input
-                type="text"
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                placeholder="Posez votre question en français (ex: Quels sont les sinistres incendie ?)..."
-                className="flex-1 rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-xs text-zinc-900 focus:border-blue-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 shadow-inner"
-              />
+      {/* Search card */}
+      <div className="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 space-y-4">
+        <div>
+          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest block mb-2">
+            Questions frequentes
+          </span>
+          <div className="flex flex-wrap gap-2">
+            {PRESET_QUESTIONS.map((q, i) => (
               <button
-                type="submit"
-                disabled={nlpLoading}
-                className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-bold text-white shadow hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                key={i}
+                onClick={() => askQuestion(q)}
+                className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-800 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 transition-all"
               >
-                <span>{nlpLoading ? 'Traduction NLTK...' : 'Traduire & Exécuter'}</span>
-                <Send className="h-3.5 w-3.5" />
+                {q}
               </button>
-            </form>
+            ))}
+          </div>
+        </div>
+        <form onSubmit={e => { e.preventDefault(); askQuestion(question); }} className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+            <input
+              type="text"
+              value={question}
+              onChange={e => setQuestion(e.target.value)}
+              placeholder="Ex : Qui sont les assures enregistres ?"
+              className="w-full rounded-2xl border border-zinc-300 bg-white pl-10 pr-4 py-3 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 shadow-inner"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="flex items-center gap-2 rounded-2xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            <span className="hidden sm:block">{loading ? 'Recherche...' : 'Rechercher'}</span>
+          </button>
+        </form>
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-800 flex items-center gap-3">
+          <AlertCircle className="h-5 w-5 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* Loading */}
+      {loading && (
+        <div className="space-y-3">
+          {[1,2,3].map(i => <div key={i} className="rounded-2xl border border-zinc-100 bg-zinc-50 h-20 animate-pulse dark:border-zinc-800 dark:bg-zinc-800/40" />)}
+        </div>
+      )}
+
+      {/* Results */}
+      {result && !loading && (
+        <div className="space-y-5">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              <span className="font-bold text-emerald-800">
+                {rows.length} resultat{rows.length > 1 ? 's' : ''} trouve{rows.length > 1 ? 's' : ''}
+              </span>
+            </div>
+            <span className="text-xs text-zinc-400">Pour : <em>{question}</em></span>
           </div>
 
-          {/* Results of NLP */}
-          {nlpError && (
-            <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-xs text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
-              {nlpError}
+          {personRows.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-blue-600" />
+                <h2 className="text-sm font-bold text-zinc-800 dark:text-zinc-200">Personnes ({personRows.length})</h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {personRows.map((row: any, i: number) => <PersonCard key={i} data={row} />)}
+              </div>
             </div>
           )}
 
-          {nlpResult && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              {/* Left Column: NLP Pipeline & SPARQL Generated */}
-              <div className="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
-                  <div className="flex items-center gap-2">
-                    <Code2 className="h-4 w-4 text-blue-600" />
-                    <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
-                      Pipeline NLP (NLTK) & SPARQL Généré
-                    </h3>
-                  </div>
-                  <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-[10px] font-bold text-blue-800 dark:bg-blue-950 dark:text-blue-300">
-                    {nlpResult.intent}
-                  </span>
-                </div>
-
-                {/* Explanation steps for the oral presentation */}
-                <div className="space-y-1.5 text-xs">
-                  <span className="font-semibold text-zinc-700 dark:text-zinc-300 block">
-                    Étapes de Traduction Automatique (Soutenance) :
-                  </span>
-                  <div className="rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 p-3 border border-zinc-200/60 dark:border-zinc-700/60 space-y-1 font-mono text-[11px] text-zinc-700 dark:text-zinc-300">
-                    {nlpResult.explanation.map((step, idx) => (
-                      <div key={idx} className="flex items-start gap-1.5">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
-                        <span>{step}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* SPARQL Query code block */}
-                <div>
-                  <span className="font-semibold text-zinc-700 dark:text-zinc-300 block text-xs mb-1">
-                    Requête SPARQL produite :
-                  </span>
-                  <pre className="rounded-2xl bg-zinc-950 p-4 text-[11px] font-mono text-emerald-400 overflow-x-auto shadow-inner">
-                    {nlpResult.sparql_query}
-                  </pre>
-                </div>
+          {contratRows.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <FileCheck2 className="h-4 w-4 text-emerald-600" />
+                <h2 className="text-sm font-bold text-zinc-800 dark:text-zinc-200">Contrats ({contratRows.length})</h2>
               </div>
-
-              {/* Right Column: Execution results on RDF Graph */}
-              <div className="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
-                  <div className="flex items-center gap-2">
-                    <Database className="h-4 w-4 text-emerald-600" />
-                    <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
-                      Résultats du Graphe RDF ({nlpResult.count} trouvés)
-                    </h3>
-                  </div>
-                  <span className="text-xs text-zinc-400 font-mono">Graph().query(...)</span>
-                </div>
-
-                {nlpResult.results.length === 0 ? (
-                  <div className="p-8 text-center text-xs text-zinc-500">
-                    Aucun résultat renvoyé par le graphe pour cette requête.
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto rounded-2xl border border-zinc-200 dark:border-zinc-800">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-zinc-100/70 dark:bg-zinc-800/70 text-zinc-700 dark:text-zinc-300 uppercase text-[10px] font-bold">
-                        <tr>
-                          {nlpResult.vars.map((v) => (
-                            <th key={v} className="px-3 py-2 border-b border-zinc-200 dark:border-zinc-700">
-                              ?{v}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 text-[11px]">
-                        {nlpResult.results.map((row, rIdx) => (
-                          <tr key={rIdx} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/40">
-                            {nlpResult.vars.map((v) => (
-                              <td key={v} className="px-3 py-2 font-mono text-zinc-800 dark:text-zinc-200">
-                                {row[v] !== null && row[v] !== undefined ? String(row[v]) : (
-                                  <span className="text-zinc-400 italic">null</span>
-                                )}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {contratRows.map((row: any, i: number) => <ContratCard key={i} data={row} />)}
               </div>
+            </div>
+          )}
+
+          {rows.length === 0 && (
+            <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-8 text-center text-sm text-zinc-500">
+              Aucun resultat pour cette question.
             </div>
           )}
         </div>
       )}
 
-      {/* TAB 2: SPARQL CONSOLE */}
-      {activeTab === 'sparql' && (
-        <div className="space-y-4">
-          <div className="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider block">
-                Exemples de requêtes SPARQL préparées :
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {PRESET_SPARQL_QUERIES.map((preset, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setCustomSparql(preset.query)}
-                    className="rounded-lg bg-zinc-100 px-2.5 py-1 text-[11px] font-semibold text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300"
-                  >
-                    {preset.title}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Query Editor */}
-            <div className="space-y-2">
-              <textarea
-                rows={7}
-                value={customSparql}
-                onChange={(e) => setCustomSparql(e.target.value)}
-                placeholder="Tapez votre requête SPARQL ici..."
-                className="w-full rounded-2xl bg-zinc-950 p-4 text-xs font-mono text-emerald-400 focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-inner"
-              />
-            </div>
-
-            <div className="flex justify-end gap-2">
+      {/* Empty state */}
+      {!result && !loading && !error && (
+        <div className="rounded-3xl border border-dashed border-zinc-200 bg-zinc-50/50 p-10 text-center dark:border-zinc-800 dark:bg-zinc-900/40">
+          <Search className="mx-auto h-10 w-10 text-zinc-300 mb-3" />
+          <p className="text-sm font-semibold text-zinc-500">Posez une question ci-dessus pour demarrer la recherche</p>
+          <p className="text-xs text-zinc-400 mt-1">Exemple : Qui sont les assures enregistres ?</p>
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            {PRESET_QUESTIONS.slice(0, 3).map((q, i) => (
               <button
-                onClick={handleExecuteSparql}
-                disabled={sparqlLoading}
-                className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-bold text-white shadow hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                key={i}
+                onClick={() => askQuestion(q)}
+                className="rounded-xl border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-600 hover:border-blue-300 hover:text-blue-700 transition-all flex items-center gap-1"
               >
-                <Terminal className="h-4 w-4" />
-                <span>{sparqlLoading ? 'Exécution en cours...' : 'Exécuter sur Graph().query()'}</span>
+                <ChevronRight className="h-3 w-3" />{q}
               </button>
-            </div>
-          </div>
-
-          {sparqlError && (
-            <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-xs text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
-              <strong>Erreur SPARQL :</strong> {sparqlError}
-            </div>
-          )}
-
-          {sparqlResult && (
-            <div className="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 space-y-3">
-              <div className="flex items-center justify-between pb-2 border-b border-zinc-100 dark:border-zinc-800">
-                <span className="font-bold text-xs text-zinc-800 dark:text-zinc-200">
-                  Résultats SPARQL ({sparqlResult.count} lignes)
-                </span>
-                <span className="text-[11px] text-zinc-400 font-mono">Format JSON retourné par l'API</span>
-              </div>
-
-              {sparqlResult.count === 0 ? (
-                <div className="p-4 text-center text-xs text-zinc-500">
-                  Aucun résultat trouvé pour cette requête SPARQL.
-                </div>
-              ) : (
-                <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-zinc-100/70 dark:bg-zinc-800/70 text-zinc-700 dark:text-zinc-300 uppercase text-[10px] font-bold">
-                      <tr>
-                        {sparqlResult.vars.map((v: string) => (
-                          <th key={v} className="px-3 py-2 border-b border-zinc-200 dark:border-zinc-700">
-                            ?{v}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 text-[11px]">
-                      {sparqlResult.results.map((row: any, rIdx: number) => (
-                        <tr key={rIdx} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/40">
-                          {sparqlResult.vars.map((v: string) => (
-                            <td key={v} className="px-3 py-2 font-mono text-zinc-800 dark:text-zinc-200">
-                              {row[v] !== null && row[v] !== undefined ? String(row[v]) : (
-                                <span className="text-zinc-400 italic">null</span>
-                              )}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* TAB 3: ONTOLOGY STRUCTURE VIEW */}
-      {activeTab === 'ontology' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {/* Classes Hierarchy */}
-          <div className="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 space-y-3">
-            <div className="flex items-center gap-2 pb-2 border-b border-zinc-100 dark:border-zinc-800">
-              <Layers className="h-4 w-4 text-blue-600" />
-              <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
-                Hiérarchie des Classes (Protégé)
-              </h3>
-            </div>
-            <div className="space-y-2 text-xs">
-              <div className="rounded-xl bg-zinc-50 dark:bg-zinc-800/40 p-3 border border-zinc-100 dark:border-zinc-800">
-                <span className="font-bold text-blue-600 block">Personne</span>
-                <span className="text-[11px] text-zinc-500 pl-4 block">&bull; Agent, Assure, Beneficiaire, Expert</span>
-              </div>
-              <div className="rounded-xl bg-zinc-50 dark:bg-zinc-800/40 p-3 border border-zinc-100 dark:border-zinc-800">
-                <span className="font-bold text-emerald-600 block">Contrat</span>
-                <span className="text-[11px] text-zinc-500 pl-4 block">&bull; ContratProprietaire, ContratLocataire, ContratCopropriete</span>
-              </div>
-              <div className="rounded-xl bg-zinc-50 dark:bg-zinc-800/40 p-3 border border-zinc-100 dark:border-zinc-800">
-                <span className="font-bold text-amber-600 block">Sinistre</span>
-                <span className="text-[11px] text-zinc-500 pl-4 block">&bull; SinistreIncendie, SinistreVol, SinistreDegatDesEaux, SinistreBrisDeGlace, SinistreCatastropheNaturelle</span>
-              </div>
-              <div className="rounded-xl bg-zinc-50 dark:bg-zinc-800/40 p-3 border border-zinc-100 dark:border-zinc-800">
-                <span className="font-bold text-teal-600 block">Garantie</span>
-                <span className="text-[11px] text-zinc-500 pl-4 block">&bull; GarantieIncendie, GarantieVol, GarantieDegatDesEaux, GarantieBrisDeGlace, GarantieResponsabiliteCivile</span>
-              </div>
-              <div className="rounded-xl bg-zinc-50 dark:bg-zinc-800/40 p-3 border border-zinc-100 dark:border-zinc-800">
-                <span className="font-bold text-purple-600 block">Habitation</span>
-                <span className="text-[11px] text-zinc-500 pl-4 block">&bull; Maison, Appartement, Studio, Villa</span>
-              </div>
-              <div className="rounded-xl bg-zinc-50 dark:bg-zinc-800/40 p-3 border border-zinc-100 dark:border-zinc-800">
-                <span className="font-bold text-rose-600 block">Indemnisation & Declaration</span>
-                <span className="text-[11px] text-zinc-500 pl-4 block">&bull; IndemnisationTotale, IndemnisationPartielle, IndemnisationRefusee, DeclarationEnCours, DeclarationAcceptee</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Properties Defined */}
-          <div className="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 space-y-4">
-            <div>
-              <div className="flex items-center gap-2 pb-2 border-b border-zinc-100 dark:border-zinc-800">
-                <Code2 className="h-4 w-4 text-emerald-600" />
-                <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
-                  Object Properties (13 Relations)
-                </h3>
-              </div>
-              <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
-                {[
-                  'aPourAssure', 'aPourBien', 'aPourClause', 'couvre', 
-                  'declareSinistre', 'donneLieuA', 'estCouvertPar', 
-                  'estDeclarePar', 'estJustifiePar', 'expertisePar', 
-                  'faitObjetDe', 'provoqueDommage', 'souscritContrat'
-                ].map((prop) => (
-                  <span
-                    key={prop}
-                    className="rounded-lg bg-emerald-50 px-2 py-0.5 text-[11px] font-mono text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
-                  >
-                    {prop}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center gap-2 pb-2 border-b border-zinc-100 dark:border-zinc-800">
-                <FileCode className="h-4 w-4 text-amber-600" />
-                <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
-                  Datatype Properties (25 Attributs)
-                </h3>
-              </div>
-              <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
-                {[
-                  'nom', 'prenom', 'cin', 'telephone', 'adresse', 'numeroContrat',
-                  'dateDebut', 'dateFin', 'montantPrime', 'plafondGarantie',
-                  'tauxFranchise', 'dateSinistre', 'lieuSinistre', 'descriptionSinistre',
-                  'niveauGravite', 'texteClause', 'montantIndemnise', 'tauxIndemnisation',
-                  'adresseBien', 'superficie', 'valeurBien', 'dateDeclaration', 'statutDeclaration',
-                  'nomFichier', 'dateUpload'
-                ].map((prop) => (
-                  <span
-                    key={prop}
-                    className="rounded-lg bg-amber-50 px-2 py-0.5 text-[11px] font-mono text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800"
-                  >
-                    {prop}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800">
-              <span className="font-semibold text-xs text-zinc-700 dark:text-zinc-300 block mb-1">
-                Individus Exemple dans le Graphe :
-              </span>
-              <p className="text-xs text-zinc-500 leading-relaxed">
-                <code className="text-blue-600 font-mono">Sinistre1</code> (SinistreIncendie survenu au 12 rue des Oliviers, déclaré par <code className="text-blue-600 font-mono">Assure1</code>, expertisé par <code className="text-blue-600 font-mono">Expert1</code>, donnant lieu à <code className="text-blue-600 font-mono">Indemnisation1</code> de 45 000 €).
-              </p>
-            </div>
+            ))}
           </div>
         </div>
       )}

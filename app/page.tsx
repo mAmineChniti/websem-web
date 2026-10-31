@@ -1,101 +1,122 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Header } from '@/components/insurance/header';
 import { Sidebar } from '@/components/insurance/sidebar';
 import { DashboardView } from '@/components/insurance/dashboard-view';
-import { ClaimsView } from '@/components/insurance/claims-view';
-import { PropertiesView } from '@/components/insurance/properties-view';
-import { ClimateView } from '@/components/insurance/climate-view';
-import { ContractsView } from '@/components/insurance/contracts-view';
-import { AssistantView } from '@/components/insurance/assistant-view';
+import { PersonnesView } from '@/components/insurance/personnes-view';
+import { ContratsView } from '@/components/insurance/contrats-view';
 import { SemanticWebView } from '@/components/insurance/semantic-web-view';
 import { AuthModal } from '@/components/insurance/auth-modal';
-import { ClaimDeclarationModal } from '@/components/insurance/claim-declaration-modal';
-import { AddPropertyModal } from '@/components/insurance/add-property-modal';
-import {
-  initialProperties,
-  initialClaims,
-  initialContracts,
-  initialClimateRisks,
-  Property,
-  Claim,
-  Contract,
-  ClimateRisk,
-} from '@/lib/insurance-data';
+import { LandingPage } from '@/components/insurance/landing-page';
+
+interface UserSession {
+  name: string;
+  email: string;
+  isConnected: boolean;
+  role: string;
+  token?: string;
+  ontology_id?: string;
+}
 
 export default function Home() {
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
-  const [user, setUser] = useState<{ name: string; email: string; isConnected: boolean } | null>({
-    name: 'Alexandre Dupont',
-    email: 'alexandre.dupont@email.fr',
-    isConnected: true,
-  });
+  const [personnesCount, setPersonnesCount] = useState<number>(4);
+  const [contratsCount, setContratsCount] = useState<number>(3);
 
-  const [properties, setProperties] = useState<Property[]>(initialProperties);
-  const [claims, setClaims] = useState<Claim[]>(initialClaims);
-  const [contracts, setContracts] = useState<Contract[]>(initialContracts);
-  const [climateRisks, setClimateRisks] = useState<ClimateRisk[]>(initialClimateRisks);
-
-  // Modals state
+  // Security & Authentication State
+  const [user, setUser] = useState<UserSession | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
-  const [isClaimModalOpen, setIsClaimModalOpen] = useState(false);
-  const [isAddPropertyModalOpen, setIsAddPropertyModalOpen] = useState(false);
 
-  // Handlers
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+  // Load session from localStorage on initial render
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('hestia_session');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Only restore if actually connected
+        if (parsed.isConnected) {
+          setUser(parsed);
+        }
+      }
+      // No default demo session — user must log in explicitly
+    } catch (e) {
+      console.warn("Storage access error:", e);
+    }
+  }, []);
+
+  // Fetch counts from backend
+  useEffect(() => {
+    fetch(`${apiUrl}/api/ontology/stats`)
+      .then((res) => {
+        if (res.ok) return res.json();
+        throw new Error('Failed to fetch stats');
+      })
+      .then((data) => {
+        if (data.personnes_count) setPersonnesCount(data.personnes_count);
+        if (data.contrats_count) setContratsCount(data.contrats_count);
+      })
+      .catch((err) => {
+        console.warn("Could not fetch ontology stats:", err);
+      });
+  }, [apiUrl]);
+
+  // Auth Handlers
   const handleOpenAuth = (mode: 'login' | 'signup') => {
     setAuthMode(mode);
     setIsAuthModalOpen(true);
   };
 
   const handleLogout = () => {
-    setUser({
-      name: '',
-      email: '',
-      isConnected: false,
-    });
+    setUser(null);
+    localStorage.removeItem('hestia_session');
+    setCurrentTab('dashboard');
   };
 
-  const handleAuthSuccess = (userData: { name: string; email: string; isConnected: boolean }) => {
-    setUser(userData);
-  };
-
-  const handleAddClaim = (newClaim: Claim) => {
-    setClaims((prev) => [newClaim, ...prev]);
-    setCurrentTab('claims');
-  };
-
-  const handleAddProperty = (newProperty: Property) => {
-    setProperties((prev) => [newProperty, ...prev]);
-    // Also create a linked contract
-    const newContract: Contract = {
-      id: `cnt-${Date.now()}`,
-      policyNumber: `POL-HA-${Math.floor(100000 + Math.random() * 900000)}`,
-      propertyId: newProperty.id,
-      propertyName: `${newProperty.name} (${newProperty.city})`,
-      planName: 'Formule Tous Risques Intégrale',
-      startDate: new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }),
-      renewalDate: '01 Janvier 2028',
-      monthlyPremium: Math.round((newProperty.surface * 0.28 + newProperty.rooms * 3) * 10) / 10,
-      annualPremium: Math.round((newProperty.surface * 0.28 + newProperty.rooms * 3) * 120),
-      deductibleGeneral: 150,
-      coverageLimits: {
-        propertyDamage: newProperty.insuredValue,
-        personalProperty: Math.round(newProperty.insuredValue * 0.15),
-        civilLiability: 10000000,
-        legalProtection: true,
-        relocationCost: 15000,
-      },
-      options: ['Assistance fuite d’urgence 24/7', 'Garantie Catastrophes Naturelles'],
+  const handleAuthSuccess = (userData: {
+    name: string;
+    email: string;
+    isConnected: boolean;
+    role: string;
+    token: string;
+    ontology_id?: string;
+  }) => {
+    const session: UserSession = {
+      name: userData.name,
+      email: userData.email,
+      isConnected: true,
+      role: userData.role,
+      token: userData.token,
+      ontology_id: userData.ontology_id,
     };
-    setContracts((prev) => [newContract, ...prev]);
-    setCurrentTab('properties');
+    setUser(session);
+    localStorage.setItem('hestia_session', JSON.stringify(session));
   };
+
+  // Show landing page if not authenticated
+  if (!user || !user.isConnected) {
+    return (
+      <>
+        <LandingPage
+          onLogin={() => handleOpenAuth('login')}
+          onSignup={() => handleOpenAuth('signup')}
+        />
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          initialMode={authMode}
+          onClose={() => setIsAuthModalOpen(false)}
+          onSuccess={handleAuthSuccess}
+        />
+      </>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-zinc-100/60 font-sans text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-50 flex flex-col">
-      {/* Header bar */}
+      {/* Header with Role Badge and Security controls */}
       <Header
         user={user}
         onOpenAuth={handleOpenAuth}
@@ -109,78 +130,47 @@ export default function Home() {
         <Sidebar
           currentTab={currentTab}
           onSelectTab={setCurrentTab}
-          openClaimModal={() => setIsClaimModalOpen(true)}
-          openAddPropertyModal={() => setIsAddPropertyModalOpen(true)}
-          claimsCount={claims.filter((c) => c.status !== 'Clos').length}
-          propertiesCount={properties.length}
+          personnesCount={personnesCount}
+          contratsCount={contratsCount}
+          userRole={user?.role || 'Assure'}
         />
 
         {/* Content area */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
           {currentTab === 'dashboard' && (
             <DashboardView
-              properties={properties}
-              claims={claims}
-              contracts={contracts}
-              climateRisks={climateRisks}
               onSelectTab={setCurrentTab}
-              openClaimModal={() => setIsClaimModalOpen(true)}
-              openAddPropertyModal={() => setIsAddPropertyModalOpen(true)}
+              userRole={user?.role}
             />
           )}
 
-          {currentTab === 'claims' && (
-            <ClaimsView
-              claims={claims}
-              openClaimModal={() => setIsClaimModalOpen(true)}
+          {currentTab === 'personnes' && (
+            <PersonnesView
+              userRole={user?.role}
+              currentUser={user}
             />
           )}
 
-          {currentTab === 'properties' && (
-            <PropertiesView
-              properties={properties}
-              openAddPropertyModal={() => setIsAddPropertyModalOpen(true)}
-              onSelectTab={setCurrentTab}
+          {currentTab === 'contrats' && (
+            <ContratsView
+              userRole={user?.role}
+              userOntologyId={user?.ontology_id}
+              currentUser={user}
             />
           )}
 
-          {currentTab === 'climate' && (
-            <ClimateView climateRisks={climateRisks} />
-          )}
-
-          {currentTab === 'contracts' && (
-            <ContractsView contracts={contracts} />
-          )}
-
-          {currentTab === 'assistant' && (
-            <AssistantView openClaimModal={() => setIsClaimModalOpen(true)} />
-          )}
-
-          {currentTab === 'semantic' && (
-            <SemanticWebView />
+          {currentTab === 'sparql' && (
+            <SemanticWebView userRole={user?.role || 'Assure'} />
           )}
         </main>
       </div>
 
-      {/* Modals */}
+      {/* Authentication Modal */}
       <AuthModal
         isOpen={isAuthModalOpen}
         initialMode={authMode}
         onClose={() => setIsAuthModalOpen(false)}
         onSuccess={handleAuthSuccess}
-      />
-
-      <ClaimDeclarationModal
-        isOpen={isClaimModalOpen}
-        properties={properties}
-        onClose={() => setIsClaimModalOpen(false)}
-        onSubmit={handleAddClaim}
-      />
-
-      <AddPropertyModal
-        isOpen={isAddPropertyModalOpen}
-        onClose={() => setIsAddPropertyModalOpen(false)}
-        onSubmit={handleAddProperty}
       />
     </div>
   );

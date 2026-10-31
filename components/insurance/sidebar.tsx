@@ -3,99 +3,85 @@
 import React from 'react';
 import { 
   LayoutDashboard, 
-  AlertOctagon, 
-  Home, 
-  CloudSun, 
+  Users, 
+  User,
   FileCheck2, 
-  Bot, 
-  PlusCircle,
-  HelpCircle,
-  Shield,
-  Network
+  Terminal, 
+  ShieldCheck, 
+  PlusCircle, 
+  BookOpen, 
+  HelpCircle 
 } from 'lucide-react';
 
 interface SidebarProps {
   currentTab: string;
   onSelectTab: (tab: string) => void;
-  openClaimModal: () => void;
-  openAddPropertyModal: () => void;
-  claimsCount: number;
-  propertiesCount: number;
+  openContratModal?: () => void;
+  personnesCount: number;
+  contratsCount: number;
+  userRole?: string;
 }
 
 export function Sidebar({ 
   currentTab, 
   onSelectTab, 
-  openClaimModal, 
-  openAddPropertyModal,
-  claimsCount,
-  propertiesCount
+  personnesCount,
+  contratsCount,
+  userRole = 'Assure'
 }: SidebarProps) {
+  const isAssure = userRole === 'Assure';
+  const isExpert = userRole === 'Expert';
+
   const navItems = [
     {
       id: 'dashboard',
       label: 'Tableau de bord',
       icon: LayoutDashboard,
       badge: null,
-      description: 'Aperçu général & KPIs',
+      description: 'Vue d’ensemble des souscriptions et indicateurs',
     },
     {
-      id: 'claims',
-      label: 'Sinistres',
-      icon: AlertOctagon,
-      badge: claimsCount > 0 ? `${claimsCount}` : null,
-      badgeColor: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300',
-      description: 'Déclaration & Suivi des dossiers',
+      id: 'personnes',
+      label: isAssure 
+        ? 'Mon Profil Assuré' 
+        : isExpert 
+        ? 'Assurés & Contacts' 
+        : 'Gestion des Personnes',
+      icon: isAssure ? User : Users,
+      badge: isAssure ? 'Actif' : `${personnesCount}`,
+      badgeColor: isAssure 
+        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' 
+        : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300',
+      description: isAssure
+        ? 'Mes données personnelles & agent référent'
+        : isExpert
+        ? 'Coordonnées des assurés à évaluer'
+        : 'Assurés, Agents, Experts, Bénéficiaires',
     },
     {
-      id: 'properties',
-      label: 'Habitations & Assurés',
-      icon: Home,
-      badge: `${propertiesCount}`,
-      badgeColor: 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300',
-      description: 'Logements, diagnostics, occupants',
-    },
-    {
-      id: 'climate',
-      label: 'Zones & Climat',
-      icon: CloudSun,
-      badge: 'Vigilance',
-      badgeColor: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
-      description: 'Risques RGA, inondations, météo',
-    },
-    {
-      id: 'contracts',
-      label: 'Contrats & Garanties',
+      id: 'contrats',
+      label: 'Contrats d\'Assurance',
       icon: FileCheck2,
-      badge: '3 Actifs',
-      badgeColor: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300',
-      description: 'Formules, franchises, attestations',
+      badge: `${contratsCount}`,
+      badgeColor: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
+      description: 'Propriétaire, Locataire, Copropriété',
     },
-    {
-      id: 'assistant',
-      label: 'Assistant IA Habitation',
-      icon: Bot,
+    ...(userRole !== 'Assure' ? [{
+      id: 'sparql',
+      label: 'Recherche & Intelligence NLP',
+      icon: Terminal,
       badge: 'IA',
-      badgeColor: 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300',
-      description: 'Conseils, démarches & ontologie',
-    },
-    {
-      id: 'semantic',
-      label: 'Web Sémantique (NLP/SPARQL)',
-      icon: Network,
-      badge: 'Prof',
       badgeColor: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300',
-      description: 'Traducteur NLTK, SPARQL & Protégé',
-    },
+      description: 'Interrogation semantique en francais',
+    }] : []),
   ];
 
   return (
     <aside className="w-full lg:w-64 shrink-0 border-r border-zinc-200/80 bg-zinc-50/50 p-4 dark:border-zinc-800/80 dark:bg-zinc-950/50 flex flex-col justify-between">
       <div className="space-y-6">
-        {/* Navigation list */}
         <div>
           <p className="px-2 mb-2 text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-            Navigation Principale
+            Gestion d'Assurance Habitation
           </p>
           <nav className="space-y-1">
             {navItems.map((item) => {
@@ -107,7 +93,7 @@ export function Sidebar({
                   onClick={() => onSelectTab(item.id)}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left text-sm font-medium transition-all ${
                     isActive
-                      ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/20 dark:bg-emerald-600'
+                      ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/20'
                       : 'text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800/60'
                   }`}
                 >
@@ -130,38 +116,25 @@ export function Sidebar({
           </nav>
         </div>
 
-        {/* Quick actions box */}
-        <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50/80 to-teal-50/50 p-3.5 dark:border-emerald-950/60 dark:from-emerald-950/30 dark:to-teal-950/10">
-          <div className="flex items-center gap-2 mb-2 text-xs font-semibold text-emerald-900 dark:text-emerald-300">
-            <Shield className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-            <span>Actions Rapides</span>
+        {/* Info Box */}
+        <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/80 to-indigo-50/50 p-3.5 dark:border-blue-950/60 dark:from-blue-950/30 dark:to-indigo-950/10 space-y-2">
+          <div className="flex items-center gap-2 text-xs font-semibold text-blue-900 dark:text-blue-300">
+            <ShieldCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <span>Socle Sémantique OWL</span>
           </div>
-          <div className="space-y-2">
-            <button
-              onClick={openClaimModal}
-              className="w-full flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow hover:bg-emerald-700 transition-colors"
-            >
-              <AlertOctagon className="h-3.5 w-3.5" />
-              <span>Déclarer un sinistre</span>
-            </button>
-            <button
-              onClick={openAddPropertyModal}
-              className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-emerald-300/80 bg-white/80 px-3 py-2 text-xs font-medium text-emerald-900 hover:bg-emerald-50 dark:border-emerald-800 dark:bg-zinc-900 dark:text-emerald-300 dark:hover:bg-zinc-800 transition-colors"
-            >
-              <PlusCircle className="h-3.5 w-3.5 text-emerald-600" />
-              <span>Assurer un logement</span>
-            </button>
+          <p className="text-[11px] text-blue-800/80 dark:text-blue-300/80 leading-relaxed">
+            Interconnexion formelle des entités <strong className="text-blue-900 dark:text-white">Personne</strong> et <strong className="text-blue-900 dark:text-white">Contrat</strong> via graphe de connaissances.
+          </p>
+          <div className="text-[10px] text-zinc-500 font-mono bg-white/70 dark:bg-black/40 p-2 rounded-lg">
+            Graphe RDF : assurance.rdf
           </div>
         </div>
       </div>
 
-      {/* Footer Support Info */}
+      {/* Footer Info */}
       <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 flex items-center justify-between px-2">
-        <span className="flex items-center gap-1.5">
-          <HelpCircle className="h-3.5 w-3.5" />
-          <span>Centre d'aide</span>
-        </span>
-        <span className="text-[11px] font-mono text-zinc-400">v1.0.0</span>
+        <span className="font-semibold text-blue-600">Hestia Assur</span>
+        <span className="text-[11px] font-mono text-zinc-400">v1.0 (OWL/RDF)</span>
       </div>
     </aside>
   );
