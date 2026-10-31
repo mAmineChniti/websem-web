@@ -1,16 +1,16 @@
 'use client';
 
 import React from 'react';
-import { 
-  LayoutDashboard, 
-  Users, 
+import {
+  LayoutDashboard,
+  Users,
   User,
-  FileCheck2, 
-  Terminal, 
-  ShieldCheck, 
-  PlusCircle, 
-  BookOpen, 
-  HelpCircle 
+  FileCheck2,
+  Terminal,
+  ShieldCheck,
+  PlusCircle,
+  BookOpen,
+  HelpCircle
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -22,9 +22,9 @@ interface SidebarProps {
   userRole?: string;
 }
 
-export function Sidebar({ 
-  currentTab, 
-  onSelectTab, 
+export function Sidebar({
+  currentTab,
+  onSelectTab,
   personnesCount,
   contratsCount,
   userRole = 'Assure'
@@ -42,21 +42,21 @@ export function Sidebar({
     },
     {
       id: 'personnes',
-      label: isAssure 
-        ? 'Mon Profil Assuré' 
-        : isExpert 
-        ? 'Assurés & Contacts' 
-        : 'Gestion des Personnes',
+      label: isAssure
+        ? 'Mon Profil Assuré'
+        : isExpert
+          ? 'Assurés & Contacts'
+          : 'Gestion des Personnes',
       icon: isAssure ? User : Users,
       badge: isAssure ? 'Actif' : `${personnesCount}`,
-      badgeColor: isAssure 
-        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' 
+      badgeColor: isAssure
+        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
         : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300',
       description: isAssure
         ? 'Mes données personnelles & agent référent'
         : isExpert
-        ? 'Coordonnées des assurés à évaluer'
-        : 'Assurés, Agents, Experts, Bénéficiaires',
+          ? 'Coordonnées des assurés à évaluer'
+          : 'Assurés, Agents, Experts, Bénéficiaires',
     },
     {
       id: 'contrats',
@@ -91,11 +91,10 @@ export function Sidebar({
                 <button
                   key={item.id}
                   onClick={() => onSelectTab(item.id)}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left text-sm font-medium transition-all ${
-                    isActive
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left text-sm font-medium transition-all ${isActive
                       ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/20'
                       : 'text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800/60'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-white' : 'text-zinc-500 dark:text-zinc-400'}`} />
@@ -103,9 +102,8 @@ export function Sidebar({
                   </div>
                   {item.badge && (
                     <span
-                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${
-                        isActive ? 'bg-white/20 text-white' : item.badgeColor
-                      }`}
+                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${isActive ? 'bg-white/20 text-white' : item.badgeColor
+                        }`}
                     >
                       {item.badge}
                     </span>
@@ -117,18 +115,34 @@ export function Sidebar({
         </div>
 
         {/* Info Box */}
-        <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/80 to-indigo-50/50 p-3.5 dark:border-blue-950/60 dark:from-blue-950/30 dark:to-indigo-950/10 space-y-2">
-          <div className="flex items-center gap-2 text-xs font-semibold text-blue-900 dark:text-blue-300">
-            <ShieldCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            <span>Socle Sémantique OWL</span>
+        {isAssure ? (
+          <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50/80 to-teal-50/50 p-3.5 dark:border-emerald-950/60 dark:from-emerald-950/30 dark:to-teal-950/10 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-semibold text-emerald-900 dark:text-emerald-300">
+              <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              <span>Espace Client Sécurisé</span>
+            </div>
+            <p className="text-[11px] text-emerald-800/80 dark:text-emerald-300/80 leading-relaxed">
+              Vos polices d'assurance habitation et vos données personnelles sont certifiées et protégées.
+            </p>
+            <div className="text-[10px] text-emerald-700 font-semibold bg-white/70 dark:bg-black/40 p-2 rounded-lg flex items-center gap-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Couverture active 24h/24</span>
+            </div>
           </div>
-          <p className="text-[11px] text-blue-800/80 dark:text-blue-300/80 leading-relaxed">
-            Interconnexion formelle des entités <strong className="text-blue-900 dark:text-white">Personne</strong> et <strong className="text-blue-900 dark:text-white">Contrat</strong> via graphe de connaissances.
-          </p>
-          <div className="text-[10px] text-zinc-500 font-mono bg-white/70 dark:bg-black/40 p-2 rounded-lg">
-            Graphe RDF : assurance.rdf
+        ) : (
+          <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/80 to-indigo-50/50 p-3.5 dark:border-blue-950/60 dark:from-blue-950/30 dark:to-indigo-950/10 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-semibold text-blue-900 dark:text-blue-300">
+              <ShieldCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <span>Socle Sémantique OWL</span>
+            </div>
+            <p className="text-[11px] text-blue-800/80 dark:text-blue-300/80 leading-relaxed">
+              Interconnexion formelle des entités <strong className="text-blue-900 dark:text-white">Personne</strong> et <strong className="text-blue-900 dark:text-white">Contrat</strong> via graphe de connaissances.
+            </p>
+            <div className="text-[10px] text-zinc-500 font-mono bg-white/70 dark:bg-black/40 p-2 rounded-lg">
+              Graphe RDF : assurance.rdf
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Footer Info */}

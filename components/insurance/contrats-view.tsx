@@ -38,12 +38,14 @@ interface ContratsViewProps {
     role: string;
     ontology_id?: string;
   } | null;
+  onCountChange?: (count: number) => void;
 }
 
 export function ContratsView({ 
   userRole = 'Assure', 
   userOntologyId = 'Assure1', 
-  currentUser 
+  currentUser,
+  onCountChange
 }: ContratsViewProps) {
   const [contrats, setContrats] = useState<Contrat[]>([]);
   const [loading, setLoading] = useState(false);
@@ -167,6 +169,12 @@ export function ContratsView({
 
     return matchesType && matchesSearch;
   });
+
+  useEffect(() => {
+    if (onCountChange) {
+      onCountChange(filtered.length);
+    }
+  }, [filtered.length, onCountChange]);
 
   return (
     <div className="space-y-6">

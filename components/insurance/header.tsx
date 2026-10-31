@@ -1,11 +1,11 @@
 'use client';
 
 import React from 'react';
-import { 
-  ShieldCheck, 
-  User, 
-  LogIn, 
-  UserPlus, 
+import {
+  ShieldCheck,
+  User,
+  LogIn,
+  UserPlus,
   LogOut,
   Sparkles
 } from 'lucide-react';
@@ -33,8 +33,8 @@ export function Header({ user, onOpenAuth, onLogout, onSelectTab }: HeaderProps)
       {/* Main header */}
       <div className="flex items-center justify-between px-4 sm:px-6 py-3">
         {/* Brand */}
-        <div 
-          onClick={() => onSelectTab('dashboard')} 
+        <div
+          onClick={() => onSelectTab('dashboard')}
           className="flex items-center gap-3 cursor-pointer group"
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform">
@@ -66,15 +66,14 @@ export function Header({ user, onOpenAuth, onLogout, onSelectTab }: HeaderProps)
                 <div className="text-left text-xs">
                   <div className="font-semibold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
                     <span>{user.name}</span>
-                    <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
-                      user.role === 'Admin'
+                    <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${user.role === 'Admin'
                         ? 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300'
                         : user.role === 'Agent'
-                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
-                        : user.role === 'Expert'
-                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                        : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                    }`}>
+                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+                          : user.role === 'Expert'
+                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                            : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                      }`}>
                       {user.role}
                     </span>
                   </div>

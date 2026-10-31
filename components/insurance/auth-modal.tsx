@@ -12,14 +12,13 @@ interface AuthModalProps {
 
 export function AuthModal({ isOpen, initialMode, onClose, onSuccess }: AuthModalProps) {
   const [mode, setMode] = useState<'login' | 'signup'>(initialMode);
-  const [role, setRole] = useState<'Assure' | 'Agent' | 'Expert' | 'Beneficiaire'>('Assure');
-  const [email, setEmail] = useState('assure1@hestia.fr');
-  const [password, setPassword] = useState('password123');
-  const [nom, setNom] = useState('BenAli');
-  const [prenom, setPrenom] = useState('Karim');
-  const [cin, setCin] = useState('08123456');
-  const [telephone, setTelephone] = useState('20123456');
-  const [adresse, setAdresse] = useState('Tunis, Ariana');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [nom, setNom] = useState('');
+  const [prenom, setPrenom] = useState('');
+  const [cin, setCin] = useState('');
+  const [telephone, setTelephone] = useState('');
+  const [adresse, setAdresse] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -45,7 +44,7 @@ export function AuthModal({ isOpen, initialMode, onClose, onSuccess }: AuthModal
             cin,
             telephone,
             adresse,
-            role,
+            role: 'Assure', // Always forced — public signup is Assure only
           }),
         });
         if (!res.ok) {
@@ -90,24 +89,6 @@ export function AuthModal({ isOpen, initialMode, onClose, onSuccess }: AuthModal
     }
   };
 
-  const setDemoAccount = (accType: 'assure' | 'agent' | 'expert' | 'admin') => {
-    setMode('login');
-    setError(null);
-    if (accType === 'assure') {
-      setEmail('assure1@hestia.fr');
-      setPassword('password123');
-    } else if (accType === 'agent') {
-      setEmail('agent1@hestia.fr');
-      setPassword('password123');
-    } else if (accType === 'expert') {
-      setEmail('expert1@hestia.fr');
-      setPassword('password123');
-    } else {
-      setEmail('admin@hestia.fr');
-      setPassword('admin123');
-    }
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
@@ -126,7 +107,7 @@ export function AuthModal({ isOpen, initialMode, onClose, onSuccess }: AuthModal
             {mode === 'login' ? 'Authentification Sécurisée' : 'Inscription — Module Personne'}
           </h2>
           <p className="text-xs text-blue-100 mt-1">
-            Gestion sécurisée avec rôles : Assuré, Agent, Expert & Admin
+            {mode === 'login' ? 'Acces securise par role' : 'Inscription publique — Compte Assure'}
           </p>
         </div>
 
@@ -158,7 +139,7 @@ export function AuthModal({ isOpen, initialMode, onClose, onSuccess }: AuthModal
                 : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400'
             }`}
           >
-            Inscription (Créer individu)
+            Inscription
           </button>
         </div>
 
@@ -174,21 +155,7 @@ export function AuthModal({ isOpen, initialMode, onClose, onSuccess }: AuthModal
         <form onSubmit={handleSubmit} className="p-6 space-y-3.5 max-h-[70vh] overflow-y-auto">
           {mode === 'signup' && (
             <>
-              <div>
-                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
-                  Rôle dans l'Ontologie (Sous-classe de Personne)
-                </label>
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value as any)}
-                  className="w-full rounded-xl border border-zinc-300 bg-white py-2 px-3 text-xs text-zinc-900 focus:border-blue-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                >
-                  <option value="Assure">Assure (Client souscripteur)</option>
-                  <option value="Agent">Agent (Gestionnaire contrats)</option>
-                  <option value="Expert">Expert (Expert d'assurance)</option>
-                  <option value="Beneficiaire">Beneficiaire (Bénéficiaire)</option>
-                </select>
-              </div>
+              
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -307,40 +274,35 @@ export function AuthModal({ isOpen, initialMode, onClose, onSuccess }: AuthModal
             <ArrowRight className="h-4 w-4" />
           </button>
 
-          {/* Quick Demo Accounts */}
-          <div className="pt-2 text-center space-y-1.5 border-t border-zinc-100 dark:border-zinc-800">
-            <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider block">
-              Comptes Démo Protégé (1 clic) :
-            </span>
-            <div className="grid grid-cols-2 gap-1.5 text-[11px]">
-              <button
-                type="button"
-                onClick={() => setDemoAccount('assure')}
-                className="rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 py-1 px-2 font-medium hover:bg-emerald-100 text-left"
-              >
-                👤 Assure1 (BenAli Karim)
-              </button>
-              <button
-                type="button"
-                onClick={() => setDemoAccount('agent')}
-                className="rounded-lg bg-blue-50 text-blue-800 border border-blue-200 py-1 px-2 font-medium hover:bg-blue-100 text-left"
-              >
-                💼 Agent1 (Trabelsi Sami)
-              </button>
-              <button
-                type="button"
-                onClick={() => setDemoAccount('expert')}
-                className="rounded-lg bg-amber-50 text-amber-800 border border-amber-200 py-1 px-2 font-medium hover:bg-amber-100 text-left"
-              >
-                🔍 Expert1 (Gharbi Nadia)
-              </button>
-              <button
-                type="button"
-                onClick={() => setDemoAccount('admin')}
-                className="rounded-lg bg-indigo-50 text-indigo-800 border border-indigo-200 py-1 px-2 font-medium hover:bg-indigo-100 text-left"
-              >
-                ⚙️ Admin (Gestionnaire)
-              </button>
+          {/* Security Notice & Mode Switch */}
+          <div className="pt-3 text-center space-y-2 border-t border-zinc-100 dark:border-zinc-800">
+            {mode === 'login' ? (
+              <p className="text-xs text-zinc-500">
+                Vous n'avez pas encore de compte client ?{' '}
+                <button
+                  type="button"
+                  onClick={() => { setMode('signup'); setError(null); }}
+                  className="font-bold text-blue-600 hover:underline dark:text-blue-400"
+                >
+                  Créer un compte
+                </button>
+              </p>
+            ) : (
+              <p className="text-xs text-zinc-500">
+                Vous avez déjà un compte ?{' '}
+                <button
+                  type="button"
+                  onClick={() => { setMode('login'); setError(null); }}
+                  className="font-bold text-blue-600 hover:underline dark:text-blue-400"
+                >
+                  Se connecter
+                </button>
+              </p>
+            )}
+
+            <div className="flex items-center justify-center gap-1.5 text-[11px] text-zinc-400 pt-1">
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+              <span>Chiffrement SSL & Hachage sécurisé SHA-256</span>
             </div>
           </div>
         </form>

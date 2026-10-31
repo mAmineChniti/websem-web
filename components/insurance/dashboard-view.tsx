@@ -66,21 +66,14 @@ export function DashboardView({ onSelectTab, userRole }: DashboardViewProps) {
               className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow hover:bg-blue-700 transition-colors"
             >
               <FileCheck2 className="h-4 w-4" />
-              <span>Gérer les Contrats</span>
+              <span>{userRole === 'Assure' ? 'Mes Contrats' : 'Gérer les Contrats'}</span>
             </button>
             <button
               onClick={() => onSelectTab('personnes')}
               className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-xs font-semibold text-white backdrop-blur hover:bg-white/20 transition-colors border border-white/20"
             >
               <Users className="h-4 w-4 text-blue-300" />
-              <span>Voir les Personnes</span>
-            </button>
-            <button
-              onClick={() => onSelectTab('sparql')}
-              className="inline-flex items-center gap-2 rounded-xl bg-indigo-600/60 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-600 transition-colors border border-indigo-400/30"
-            >
-              <Terminal className="h-4 w-4 text-indigo-300" />
-              <span>Traducteur NLP & SPARQL</span>
+              <span>{userRole === 'Assure' ? 'Mon Profil Assuré' : 'Voir les Personnes'}</span>
             </button>
           </div>
         </div>
@@ -161,27 +154,50 @@ export function DashboardView({ onSelectTab, userRole }: DashboardViewProps) {
           </p>
         </div>
 
-        {/* KPI 4 : Ontologie Triples */}
-        <div 
-          onClick={() => onSelectTab('sparql')}
-          className="cursor-pointer rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm hover:shadow-md transition-all dark:border-zinc-800 dark:bg-zinc-900"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-zinc-500">Graphe RDF</span>
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-400">
-              <Database className="h-4 w-4" />
+        {/* KPI 4 : Statut Protection (Assuré) ou Ontologie (Back-office) */}
+        {userRole === 'Assure' ? (
+          <div 
+            onClick={() => onSelectTab('personnes')}
+            className="cursor-pointer rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm hover:shadow-md transition-all dark:border-zinc-800 dark:bg-zinc-900"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-zinc-500">Statut Protection</span>
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-400">
+                <ShieldCheck className="h-4 w-4" />
+              </div>
             </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+                Protégé
+              </span>
+              <span className="text-xs font-semibold text-emerald-600">100 % Couvert</span>
+            </div>
+            <p className="mt-1 text-[11px] text-zinc-500">
+              Protection Incendie, Dégât des Eaux & RC
+            </p>
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-              {stats?.total_triples || 398}
-            </span>
-            <span className="text-xs font-semibold text-purple-600">Triplets</span>
+        ) : (
+          <div 
+            onClick={() => onSelectTab(userRole === 'Admin' ? 'sparql' : 'contrats')}
+            className="cursor-pointer rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm hover:shadow-md transition-all dark:border-zinc-800 dark:bg-zinc-900"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-zinc-500">Base Ontologique</span>
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-400">
+                <Database className="h-4 w-4" />
+              </div>
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+                {stats?.total_triples || 414}
+              </span>
+              <span className="text-xs font-semibold text-purple-600">Triplets RDF</span>
+            </div>
+            <p className="mt-1 text-[11px] text-zinc-500">
+              Graphe sémantique de connaissances certifié
+            </p>
           </div>
-          <p className="mt-1 text-[11px] text-zinc-500">
-            Moteur RDFlib & requêtes SPARQL
-          </p>
-        </div>
+        )}
       </div>
 
       {/* Main Grid: Contracts & Persons Preview */}
