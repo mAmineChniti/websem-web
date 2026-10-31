@@ -15,7 +15,11 @@ import {
   ShieldCheck,
   Lock,
   ShieldAlert,
-  Home
+  Home,
+  Shield,
+  Users,
+  DollarSign,
+  CheckSquare,
 } from 'lucide-react';
 
 interface Contrat {
@@ -26,6 +30,10 @@ interface Contrat {
   dateFin: string | null;
   montantPrime: string | null;
   assure: string | null;
+  habitation?: string | null;
+  garanties?: string | null;
+  beneficiaire?: string | null;
+  franchise?: string | null;
 }
 
 interface ContratsViewProps {
@@ -54,6 +62,10 @@ export function ContratsView({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewScope, setViewScope] = useState<'mes_contrats' | 'tous'>(userRole === 'Assure' ? 'mes_contrats' : 'tous');
 
+  // Liste des assurés chargée depuis l'API
+  const [assuresList, setAssuresList] = useState<{id: string; nom: string; prenom: string}[]>([]);
+  const [beneficiairesList, setBeneficiairesList] = useState<{id: string; nom: string; prenom: string}[]>([]);
+
   // Strict Permissions
   const canCreateContrat = userRole === 'Agent' || userRole === 'Admin';
   const canDeleteContrat = userRole === 'Admin';
@@ -64,10 +76,30 @@ export function ContratsView({
   const [dateDebut, setDateDebut] = useState('2026-01-01T00:00:00');
   const [dateFin, setDateFin] = useState('2026-12-31T00:00:00');
   const [montantPrime, setMontantPrime] = useState('650');
-  const [assure, setAssure] = useState(userOntologyId || 'Assure1');
+  const [assure, setAssure] = useState('');
+  const [habitation, setHabitation] = useState('Maison');
+  const [selectedGaranties, setSelectedGaranties] = useState<string[]>(['Incendie']);
+  const [beneficiaire, setBeneficiaire] = useState('');
+  const [franchise, setFranchise] = useState('150');
   const [formError, setFormError] = useState<string | null>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+  const GARANTIES_DISPONIBLES = [
+    { id: 'Incendie', label: 'Incendie', icon: '🔥' },
+    { id: 'DegatDesEaux', label: 'Dégât des eaux', icon: '💧' },
+    { id: 'CatastropheNaturelle', label: 'Catastrophe naturelle', icon: '🌊' },
+    { id: 'Vol', label: 'Vol & Cambriolage', icon: '🔒' },
+    { id: 'BrisDeGlace', label: 'Bris de glace', icon: '🪟' },
+    { id: 'ResponsabiliteCivile', label: 'Responsabilité civile', icon: '⚖️' },
+  ];
+
+  const HABITATIONS = [
+    { id: 'Maison', label: 'Maison', icon: '🏠' },
+    { id: 'Appartement', label: 'Appartement', icon: '🏢' },
+    { id: 'Villa', label: 'Villa', icon: '🏡' },
+    { id: 'Studio', label: 'Studio', icon: '🏬' },
+  ];
 
   const fetchContrats = async () => {
     setLoading(true);
@@ -91,9 +123,56 @@ export function ContratsView({
     }
   };
 
+  // Charger la liste des assurés et bénéficiaires pour les menus déroulants
+  const fetchPersonnes = async () => {
+    try {
+      const res = await fetch(`${apiUrl}/api/ontology/personnes`);
+      if (res.ok) {
+        const data = await res.json();
+        const assures = data
+          .filter((p: any) => {
+            const t = (p.type || '').toLowerCase();
+            const id = (p.personne || '').toLowerCase();
+            return t.includes('assure') || id.includes('assure');
+          })
+          .filter((p: any) => p.nom || p.prenom)
+          .map((p: any) => ({
+            id: p.personne || p.assure || '',
+            nom: p.nom || '',
+            prenom: p.prenom || '',
+          }));
+        setAssuresList(assures);
+        if (assures.length > 0 && !assure) {
+          setAssure(assures[0].id);
+        }
+
+        const beneficiaires = data
+          .filter((p: any) => {
+            const t = (p.type || '').toLowerCase();
+            const id = (p.personne || '').toLowerCase();
+            return t.includes('beneficiaire') || id.includes('beneficiaire');
+          })
+          .filter((p: any) => p.nom || p.prenom)
+          .map((p: any) => ({
+            id: p.personne || p.beneficiaire || '',
+            nom: p.nom || '',
+            prenom: p.prenom || '',
+          }));
+        setBeneficiairesList(beneficiaires);
+      }
+    } catch {}
+  };
+
   useEffect(() => {
     fetchContrats();
+    fetchPersonnes();
   }, []);
+
+  const toggleGarantie = (id: string) => {
+    setSelectedGaranties(prev =>
+      prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id]
+    );
+  };
 
   const handleCreateContrat = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,6 +180,16 @@ export function ContratsView({
 
     if (!canCreateContrat) {
       setFormError("Droits insuffisants : Seuls les Agents d'assurance et Administrateurs peuvent émettre des contrats.");
+      return;
+    }
+
+    if (!assure) {
+      setFormError("Veuillez sélectionner un assuré souscripteur.");
+      return;
+    }
+
+    if (selectedGaranties.length === 0) {
+      setFormError("Veuillez sélectionner au moins une garantie.");
       return;
     }
 
@@ -115,11 +204,19 @@ export function ContratsView({
           dateFin,
           montantPrime: parseFloat(montantPrime) || 500,
           assure: assure,
+          habitation,
+          garanties: selectedGaranties.join(','),
+          beneficiaire: beneficiaire || null,
+          franchise: parseFloat(franchise) || 0,
         }),
       });
       if (res.ok) {
         setIsModalOpen(false);
         fetchContrats();
+        // Reset form
+        setNumeroContrat(`C-2026-00${Math.floor(2 + Math.random() * 9)}`);
+        setSelectedGaranties(['Incendie']);
+        setBeneficiaire('');
       } else {
         const err = await res.json().catch(() => ({}));
         setFormError(err.detail || "Erreur lors de la création du contrat.");
@@ -264,7 +361,7 @@ export function ContratsView({
             <div>
               <p className="font-semibold text-sm">Gestionnaire de Contrats (Habilitation Agent)</p>
               <p className="text-[11px] text-blue-800/80 dark:text-blue-300/80 mt-0.5">
-                Vous pouvez créer des contrats pour n'importe quel assuré enregistré dans l'ontologie via la relation sémantique <code className="font-mono text-blue-700 dark:text-blue-300">as:aPourAssure</code>.
+                Vous pouvez créer des contrats pour vos assurés. Choisissez l'assuré, l'habitation, le type de contrat et les garanties.
               </p>
             </div>
           </div>
@@ -281,7 +378,7 @@ export function ContratsView({
             <div>
               <p className="font-semibold text-sm">Supervision Globale des Polices (Administrateur)</p>
               <p className="text-[11px] text-purple-800/80 dark:text-purple-300/80 mt-0.5">
-                Plein pouvoir sur les polices d'assurance : création, modification et suppression par requêtes SPARQL DELETE.
+                Plein pouvoir sur les polices d'assurance : création, modification et suppression.
               </p>
             </div>
           </div>
@@ -397,22 +494,25 @@ export function ContratsView({
         })}
       </div>
 
-      {/* Modal - Créer un Contrat (Uniquement Agent & Admin) */}
+      {/* ══════════════════════════════════════════════════════════════════
+          MODAL — Créer un Contrat (Agent & Admin)
+          Formulaire complet : Assuré → Habitation → Type → Garanties → Bénéficiaire → Dates/Prime/Franchise
+         ══════════════════════════════════════════════════════════════════ */}
       {isModalOpen && canCreateContrat && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
-            <div className="bg-gradient-to-r from-emerald-600 to-teal-700 p-6 text-white relative">
+          <div className="relative w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 max-h-[90vh] overflow-y-auto">
+            <div className="bg-gradient-to-r from-emerald-600 to-teal-700 p-6 text-white relative sticky top-0 z-10">
               <button
                 onClick={() => setIsModalOpen(false)}
                 className="absolute right-4 top-4 rounded-full bg-white/10 p-1.5 text-white hover:bg-white/20 transition-colors"
               >
                 <X className="h-4 w-4" />
               </button>
-              <h2 className="text-lg font-bold font-serif">Créer un Contrat dans l'Ontologie</h2>
-              <p className="text-xs text-emerald-100">Souscription conforme au modèle ontologique OWL</p>
+              <h2 className="text-lg font-bold font-serif">Créer un Contrat d'Assurance</h2>
+              <p className="text-xs text-emerald-100">Souscription pour un assuré — conforme au modèle ontologique OWL</p>
             </div>
 
-            <form onSubmit={handleCreateContrat} className="p-6 space-y-3.5">
+            <form onSubmit={handleCreateContrat} className="p-6 space-y-4">
               {formError && (
                 <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800 flex items-center gap-2">
                   <ShieldAlert className="h-4 w-4 text-red-600 shrink-0" />
@@ -420,24 +520,127 @@ export function ContratsView({
                 </div>
               )}
 
+              {/* ── 1. Assuré (liste déroulante) ────────────────────────── */}
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 space-y-1.5">
+                <label className="flex items-center gap-2 text-xs font-bold text-emerald-900">
+                  <User className="h-3.5 w-3.5 text-emerald-600" />
+                  <span>1. Assuré souscripteur</span>
+                  <span className="text-[9px] font-normal text-emerald-600 ml-auto">(aPourAssure)</span>
+                </label>
+                <select
+                  value={assure}
+                  onChange={(e) => setAssure(e.target.value)}
+                  required
+                  className="w-full rounded-lg border border-emerald-200 bg-white p-2 text-xs focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                >
+                  <option value="">— Sélectionner un assuré —</option>
+                  {assuresList.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.prenom} {a.nom} ({a.id})
+                    </option>
+                  ))}
+                </select>
+                {assuresList.length === 0 && (
+                  <p className="text-[10px] text-amber-700">⚠ Aucun assuré trouvé dans l'ontologie. Créez d'abord un assuré.</p>
+                )}
+              </div>
+
+              {/* ── 2. Habitation ─────────────────────────────────────── */}
+              <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-3 space-y-1.5">
+                <label className="flex items-center gap-2 text-xs font-bold text-blue-900">
+                  <Home className="h-3.5 w-3.5 text-blue-600" />
+                  <span>2. Habitation concernée</span>
+                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  {HABITATIONS.map((h) => (
+                    <button
+                      key={h.id}
+                      type="button"
+                      onClick={() => setHabitation(h.id)}
+                      className={`flex flex-col items-center gap-1 rounded-xl border p-2 text-[11px] font-semibold transition-all ${
+                        habitation === h.id
+                          ? 'border-blue-500 bg-blue-100 text-blue-800 shadow-sm ring-1 ring-blue-300'
+                          : 'border-zinc-200 bg-white text-zinc-600 hover:border-blue-300'
+                      }`}
+                    >
+                      <span className="text-lg">{h.icon}</span>
+                      <span>{h.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── 3. Type de contrat ────────────────────────────────── */}
               <div>
-                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
-                  Sous-classe de Contrat
+                <label className="flex items-center gap-2 text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                  <FileCheck2 className="h-3.5 w-3.5 text-zinc-500" />
+                  <span>3. Type de contrat</span>
                 </label>
                 <select
                   value={type}
                   onChange={(e) => setType(e.target.value)}
                   className="w-full rounded-xl border border-zinc-300 bg-white p-2 text-xs focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                 >
-                  <option value="ContratProprietaire">ContratPropriétaire (Résidence principale/secondaire)</option>
-                  <option value="ContratLocataire">ContratLocataire (Risques locatifs)</option>
-                  <option value="ContratCopropriete">ContratCopropriété (Immeuble / Parties communes)</option>
+                  <option value="ContratProprietaire">Propriétaire (Résidence principale/secondaire)</option>
+                  <option value="ContratLocataire">Locataire (Risques locatifs)</option>
+                  <option value="ContratCopropriete">Copropriété (Immeuble / Parties communes)</option>
                 </select>
               </div>
 
+              {/* ── 4. Garanties (multi-sélection) ───────────────────── */}
+              <div className="rounded-xl border border-violet-200 bg-violet-50/50 p-3 space-y-1.5">
+                <label className="flex items-center gap-2 text-xs font-bold text-violet-900">
+                  <Shield className="h-3.5 w-3.5 text-violet-600" />
+                  <span>4. Garanties</span>
+                  <span className="text-[9px] font-normal text-violet-600 ml-auto">{selectedGaranties.length} sélectionnée{selectedGaranties.length > 1 ? 's' : ''}</span>
+                </label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {GARANTIES_DISPONIBLES.map((g) => (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => toggleGarantie(g.id)}
+                      className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-[11px] font-medium transition-all text-left ${
+                        selectedGaranties.includes(g.id)
+                          ? 'border-violet-500 bg-violet-100 text-violet-800 shadow-sm'
+                          : 'border-zinc-200 bg-white text-zinc-600 hover:border-violet-300'
+                      }`}
+                    >
+                      <span>{g.icon}</span>
+                      <span className="flex-1">{g.label}</span>
+                      {selectedGaranties.includes(g.id) && (
+                        <CheckSquare className="h-3.5 w-3.5 text-violet-600 shrink-0" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── 5. Bénéficiaire (facultatif) ─────────────────────── */}
+              <div>
+                <label className="flex items-center gap-2 text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                  <Users className="h-3.5 w-3.5 text-zinc-500" />
+                  <span>5. Bénéficiaire</span>
+                  <span className="text-[9px] font-normal text-zinc-400 ml-auto">Facultatif</span>
+                </label>
+                <select
+                  value={beneficiaire}
+                  onChange={(e) => setBeneficiaire(e.target.value)}
+                  className="w-full rounded-xl border border-zinc-300 bg-white p-2 text-xs focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                >
+                  <option value="">— Aucun bénéficiaire —</option>
+                  {beneficiairesList.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.prenom} {b.nom} ({b.id})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* ── 6. Numéro de police ───────────────────────────────── */}
               <div>
                 <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
-                  Numéro de Police
+                  6. Numéro de Police
                 </label>
                 <input
                   type="text"
@@ -449,9 +652,11 @@ export function ContratsView({
                 />
               </div>
 
+              {/* ── 7. Prime + Franchise ──────────────────────────────── */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label className="flex items-center gap-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                    <DollarSign className="h-3 w-3 text-zinc-500" />
                     Prime Annuelle (DT)
                   </label>
                   <input
@@ -464,23 +669,28 @@ export function ContratsView({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
-                    Assuré Souscripteur (aPourAssure)
+                  <label className="flex items-center gap-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                    <DollarSign className="h-3 w-3 text-zinc-500" />
+                    Franchise (DT)
                   </label>
                   <input
-                    type="text"
+                    type="number"
                     required
-                    value={assure}
-                    onChange={(e) => setAssure(e.target.value)}
-                    placeholder="Ex: Assure1"
+                    value={franchise}
+                    onChange={(e) => setFranchise(e.target.value)}
+                    placeholder="Ex: 150"
                     className="w-full rounded-xl border border-zinc-300 p-2 text-xs focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                   />
                 </div>
               </div>
 
+              {/* ── 8. Dates ──────────────────────────────────────────── */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Date Début</label>
+                  <label className="flex items-center gap-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                    <Calendar className="h-3 w-3 text-zinc-500" />
+                    Date Début
+                  </label>
                   <input
                     type="date"
                     required
@@ -490,7 +700,10 @@ export function ContratsView({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Date Fin</label>
+                  <label className="flex items-center gap-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                    <Calendar className="h-3 w-3 text-zinc-500" />
+                    Date Fin
+                  </label>
                   <input
                     type="date"
                     required
@@ -501,7 +714,8 @@ export function ContratsView({
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-3">
+              {/* Submit */}
+              <div className="flex justify-end gap-2 pt-3 border-t border-zinc-100 dark:border-zinc-800">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
@@ -513,7 +727,7 @@ export function ContratsView({
                   type="submit"
                   className="rounded-xl bg-emerald-600 px-5 py-2 text-xs font-bold text-white shadow hover:bg-emerald-700 transition-colors"
                 >
-                  Créer le contrat RDF
+                  Créer le contrat
                 </button>
               </div>
             </form>
