@@ -5,6 +5,7 @@ import {
   FileCheck2, 
   PlusCircle, 
   Trash2, 
+  Pencil,
   Calendar, 
   CreditCard, 
   User, 
@@ -68,6 +69,7 @@ export function ContratsView({
 
   // Strict Permissions
   const canCreateContrat = userRole === 'Agent' || userRole === 'Admin';
+  const canEditContrat = userRole === 'Agent' || userRole === 'Admin';
   const canDeleteContrat = userRole === 'Admin';
 
   // New Contract form state
@@ -82,6 +84,22 @@ export function ContratsView({
   const [beneficiaire, setBeneficiaire] = useState('');
   const [franchise, setFranchise] = useState('150');
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Edit Contract state
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<Contrat | null>(null);
+  const [editType, setEditType] = useState('ContratProprietaire');
+  const [editNumeroContrat, setEditNumeroContrat] = useState('');
+  const [editDateDebut, setEditDateDebut] = useState('2026-01-01T00:00:00');
+  const [editDateFin, setEditDateFin] = useState('2026-12-31T00:00:00');
+  const [editMontantPrime, setEditMontantPrime] = useState('650');
+  const [editAssure, setEditAssure] = useState('');
+  const [editHabitation, setEditHabitation] = useState('Maison');
+  const [editSelectedGaranties, setEditSelectedGaranties] = useState<string[]>(['Incendie']);
+  const [editBeneficiaire, setEditBeneficiaire] = useState('');
+  const [editFranchise, setEditFranchise] = useState('150');
+  const [editFormError, setEditFormError] = useState<string | null>(null);
+  const [editLoading, setEditLoading] = useState(false);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -174,6 +192,28 @@ export function ContratsView({
     );
   };
 
+  const toggleEditGarantie = (id: string) => {
+    setEditSelectedGaranties(prev =>
+      prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id]
+    );
+  };
+
+  const openEditModal = (c: Contrat) => {
+    setEditTarget(c);
+    setEditType(c.typeContrat || 'ContratProprietaire');
+    setEditNumeroContrat(c.numeroContrat || c.contrat);
+    setEditDateDebut(c.dateDebut ? (c.dateDebut.includes('T') ? c.dateDebut : `${c.dateDebut}T00:00:00`) : '2026-01-01T00:00:00');
+    setEditDateFin(c.dateFin ? (c.dateFin.includes('T') ? c.dateFin : `${c.dateFin}T00:00:00`) : '2026-12-31T00:00:00');
+    setEditMontantPrime(c.montantPrime ? String(c.montantPrime) : '650');
+    setEditAssure(c.assure || (assuresList.length > 0 ? assuresList[0].id : ''));
+    setEditHabitation(c.habitation || 'Maison');
+    setEditSelectedGaranties(c.garanties ? c.garanties.split(',').map(s => s.trim()) : ['Incendie']);
+    setEditBeneficiaire(c.beneficiaire || '');
+    setEditFranchise(c.franchise ? String(c.franchise) : '150');
+    setEditFormError(null);
+    setIsEditModalOpen(true);
+  };
+
   const handleCreateContrat = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
@@ -183,13 +223,45 @@ export function ContratsView({
       return;
     }
 
+    // Validation des champs obligatoires
     if (!assure) {
-      setFormError("Veuillez sélectionner un assuré souscripteur.");
+      setFormError("Champ obligatoire manquant : L'assuré souscripteur est obligatoire.");
+      return;
+    }
+
+    if (!numeroContrat || !numeroContrat.trim()) {
+      setFormError("Champ obligatoire manquant : Le numéro de police de contrat est obligatoire.");
+      return;
+    }
+
+    if (!type) {
+      setFormError("Champ obligatoire manquant : Le type de contrat est obligatoire.");
+      return;
+    }
+
+    if (!habitation) {
+      setFormError("Champ obligatoire manquant : L'habitation concernée est obligatoire.");
       return;
     }
 
     if (selectedGaranties.length === 0) {
-      setFormError("Veuillez sélectionner au moins une garantie.");
+      setFormError("Champ obligatoire manquant : Vous devez sélectionner au moins une garantie.");
+      return;
+    }
+
+    const primeNum = parseFloat(montantPrime);
+    if (isNaN(primeNum) || primeNum <= 0) {
+      setFormError("Champ obligatoire invalide : Le montant de la prime doit être un nombre strictement supérieur à 0.");
+      return;
+    }
+
+    if (!dateDebut || !dateFin) {
+      setFormError("Champs obligatoires manquants : Les dates d'effet et d'échéance sont obligatoires.");
+      return;
+    }
+
+    if (new Date(dateFin) <= new Date(dateDebut)) {
+      setFormError("Incohérence de dates : La date de fin doit être postérieure à la date de début.");
       return;
     }
 
@@ -199,10 +271,10 @@ export function ContratsView({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type,
-          numeroContrat,
+          numeroContrat: numeroContrat.trim(),
           dateDebut,
           dateFin,
-          montantPrime: parseFloat(montantPrime) || 500,
+          montantPrime: primeNum,
           assure: assure,
           habitation,
           garanties: selectedGaranties.join(','),
@@ -223,6 +295,77 @@ export function ContratsView({
       }
     } catch (err) {
       setFormError("Erreur de connexion au serveur.");
+    }
+  };
+
+  const handleEditContrat = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editTarget) return;
+    setEditFormError(null);
+
+    // Validation des champs obligatoires
+    if (!editAssure) {
+      setEditFormError("Champ obligatoire manquant : L'assuré souscripteur est obligatoire.");
+      return;
+    }
+
+    if (!editNumeroContrat || !editNumeroContrat.trim()) {
+      setEditFormError("Champ obligatoire manquant : Le numéro de police de contrat est obligatoire.");
+      return;
+    }
+
+    if (editSelectedGaranties.length === 0) {
+      setEditFormError("Champ obligatoire manquant : Vous devez sélectionner au moins une garantie.");
+      return;
+    }
+
+    const primeNum = parseFloat(editMontantPrime);
+    if (isNaN(primeNum) || primeNum <= 0) {
+      setEditFormError("Champ obligatoire invalide : Le montant de la prime doit être un nombre strictement supérieur à 0.");
+      return;
+    }
+
+    if (!editDateDebut || !editDateFin) {
+      setEditFormError("Champs obligatoires manquants : Les dates d'effet et d'échéance sont obligatoires.");
+      return;
+    }
+
+    if (new Date(editDateFin) <= new Date(editDateDebut)) {
+      setEditFormError("Incohérence de dates : La date de fin doit être postérieure à la date de début.");
+      return;
+    }
+
+    setEditLoading(true);
+    try {
+      const res = await fetch(`${apiUrl}/api/ontology/contrats/${editTarget.contrat}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: editType,
+          numeroContrat: editNumeroContrat.trim(),
+          dateDebut: editDateDebut,
+          dateFin: editDateFin,
+          montantPrime: primeNum,
+          assure: editAssure,
+          habitation: editHabitation,
+          garanties: editSelectedGaranties.join(','),
+          beneficiaire: editBeneficiaire || null,
+          franchise: parseFloat(editFranchise) || 0,
+        }),
+      });
+
+      if (res.ok) {
+        setIsEditModalOpen(false);
+        setEditTarget(null);
+        fetchContrats();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setEditFormError(err.detail || "Erreur lors de la modification du contrat.");
+      }
+    } catch (err) {
+      setEditFormError("Erreur de connexion au serveur.");
+    } finally {
+      setEditLoading(false);
     }
   };
 
@@ -449,7 +592,15 @@ export function ContratsView({
                   <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
                     {c.typeContrat || 'Contrat d\'assurance'}
                   </span>
-                  <span className="font-mono text-zinc-400 text-xs">#{c.contrat}</span>
+                  <div className="flex items-center gap-1.5">
+                    {c.habitation && (
+                      <span className="rounded-md bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 px-2 py-0.5 text-[10px] font-medium text-blue-700 dark:text-blue-300 flex items-center gap-1">
+                        <Home className="h-3 w-3" />
+                        <span>{c.habitation}</span>
+                      </span>
+                    )}
+                    <span className="font-mono text-zinc-400 text-xs">#{c.contrat}</span>
+                  </div>
                 </div>
 
                 <div>
@@ -457,36 +608,73 @@ export function ContratsView({
                     {c.numeroContrat || c.contrat}
                   </h3>
                   <div className="mt-1 flex items-center gap-1.5 text-xs text-zinc-500">
-                    <User className="h-3.5 w-3.5 shrink-0" />
+                    <User className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
                     <span>Assuré : <strong className="text-zinc-800 dark:text-zinc-200">{c.assure || 'Non spécifié'}</strong></span>
                   </div>
+                  {c.beneficiaire && (
+                    <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-zinc-400">
+                      <Users className="h-3 w-3 shrink-0" />
+                      <span>Bénéficiaire : {c.beneficiaire}</span>
+                    </div>
+                  )}
                 </div>
 
-                <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 space-y-1.5 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-zinc-400">Montant de la prime :</span>
-                    <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                {c.garanties && (
+                  <div className="flex flex-wrap gap-1 pt-1">
+                    {c.garanties.split(',').map((g, gi) => (
+                      <span key={gi} className="rounded-md bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600 dark:text-zinc-300">
+                        {g.trim()}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 space-y-1 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-zinc-400">Prime annuelle :</span>
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">
                       {c.montantPrime ? `${c.montantPrime} DT` : '850 DT'} / an
                     </span>
                   </div>
-                  <div className="flex justify-between">
+                  {c.franchise && (
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-zinc-400">Franchise contractuelle :</span>
+                      <span className="font-semibold text-zinc-700 dark:text-zinc-300">{c.franchise} DT</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center text-[11px]">
                     <span className="text-zinc-400">Période :</span>
-                    <span>{c.dateDebut ? c.dateDebut.split('T')[0] : '2026-01-01'} au {c.dateFin ? c.dateFin.split('T')[0] : '2026-12-31'}</span>
+                    <span className="text-zinc-600 dark:text-zinc-400 font-mono">
+                      {c.dateDebut ? c.dateDebut.split('T')[0] : '2026-01-01'} au {c.dateFin ? c.dateFin.split('T')[0] : '2026-12-31'}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {/* Delete button strictly restricted to Admin */}
-              {canDeleteContrat && (
-                <div className="pt-3 mt-3 border-t border-zinc-100 dark:border-zinc-800 flex justify-end">
-                  <button
-                    onClick={() => handleDeleteContrat(c.contrat)}
-                    title="Supprimer ce contrat de l'ontologie (Réservé à l'Admin)"
-                    className="inline-flex items-center gap-1 text-[11px] text-red-500 hover:text-red-700 transition-colors p-1"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    <span>Supprimer (Admin)</span>
-                  </button>
+              {/* Action buttons (CRUD : Modifier pour Agent/Admin, Supprimer pour Admin) */}
+              {(canEditContrat || canDeleteContrat) && (
+                <div className="pt-3 mt-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between gap-2">
+                  {canEditContrat ? (
+                    <button
+                      onClick={() => openEditModal(c)}
+                      title="Modifier les informations de ce contrat"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 py-1.5 px-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      <span>Modifier</span>
+                    </button>
+                  ) : <div />}
+
+                  {canDeleteContrat && (
+                    <button
+                      onClick={() => handleDeleteContrat(c.contrat)}
+                      title="Supprimer ce contrat de l'ontologie (Réservé à l'Admin)"
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-500 hover:text-red-700 transition-colors py-1.5 px-2.5 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/40"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span>Supprimer</span>
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -513,6 +701,14 @@ export function ContratsView({
             </div>
 
             <form onSubmit={handleCreateContrat} className="p-6 space-y-4">
+              {/* Encart informatif sur les champs obligatoires */}
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-xs text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200 flex items-center justify-between">
+                <span>Tous les champs marqués d'une étoile (<span className="text-red-500 font-bold text-sm">*</span>) sont <strong>obligatoires</strong>.</span>
+                <span className="text-[10px] bg-emerald-200/80 dark:bg-emerald-800 text-emerald-950 dark:text-emerald-100 px-2 py-0.5 rounded-full font-bold">
+                  Validation stricte
+                </span>
+              </div>
+
               {formError && (
                 <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800 flex items-center gap-2">
                   <ShieldAlert className="h-4 w-4 text-red-600 shrink-0" />
@@ -525,6 +721,8 @@ export function ContratsView({
                 <label className="flex items-center gap-2 text-xs font-bold text-emerald-900">
                   <User className="h-3.5 w-3.5 text-emerald-600" />
                   <span>1. Assuré souscripteur</span>
+                  <span className="text-red-500 font-bold">*</span>
+                  <span className="text-[9px] font-semibold text-red-600 bg-red-100 dark:bg-red-950/60 px-1.5 py-0.5 rounded">Obligatoire</span>
                   <span className="text-[9px] font-normal text-emerald-600 ml-auto">(aPourAssure)</span>
                 </label>
                 <select
@@ -533,7 +731,7 @@ export function ContratsView({
                   required
                   className="w-full rounded-lg border border-emerald-200 bg-white p-2 text-xs focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                 >
-                  <option value="">— Sélectionner un assuré —</option>
+                  <option value="">— Sélectionner un assuré (obligatoire) —</option>
                   {assuresList.map((a) => (
                     <option key={a.id} value={a.id}>
                       {a.prenom} {a.nom} ({a.id})
@@ -550,6 +748,8 @@ export function ContratsView({
                 <label className="flex items-center gap-2 text-xs font-bold text-blue-900">
                   <Home className="h-3.5 w-3.5 text-blue-600" />
                   <span>2. Habitation concernée</span>
+                  <span className="text-red-500 font-bold">*</span>
+                  <span className="text-[9px] font-semibold text-red-600 bg-red-100 dark:bg-red-950/60 px-1.5 py-0.5 rounded">Obligatoire</span>
                 </label>
                 <div className="grid grid-cols-4 gap-2">
                   {HABITATIONS.map((h) => (
@@ -574,14 +774,17 @@ export function ContratsView({
               <div>
                 <label className="flex items-center gap-2 text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1.5">
                   <FileCheck2 className="h-3.5 w-3.5 text-zinc-500" />
-                  <span>3. Type de contrat</span>
+                  <span>3. Formule de contrat</span>
+                  <span className="text-red-500 font-bold">*</span>
+                  <span className="text-[9px] font-semibold text-red-600 bg-red-100 dark:bg-red-950/60 px-1.5 py-0.5 rounded">Obligatoire</span>
                 </label>
                 <select
                   value={type}
                   onChange={(e) => setType(e.target.value)}
+                  required
                   className="w-full rounded-xl border border-zinc-300 bg-white p-2 text-xs focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                 >
-                  <option value="ContratProprietaire">Propriétaire (Résidence principale/secondaire)</option>
+                  <option value="ContratProprietaire">Propriétaire (Résidence principale / secondaire)</option>
                   <option value="ContratLocataire">Locataire (Risques locatifs)</option>
                   <option value="ContratCopropriete">Copropriété (Immeuble / Parties communes)</option>
                 </select>
@@ -591,7 +794,9 @@ export function ContratsView({
               <div className="rounded-xl border border-violet-200 bg-violet-50/50 p-3 space-y-1.5">
                 <label className="flex items-center gap-2 text-xs font-bold text-violet-900">
                   <Shield className="h-3.5 w-3.5 text-violet-600" />
-                  <span>4. Garanties</span>
+                  <span>4. Garanties souscrites</span>
+                  <span className="text-red-500 font-bold">*</span>
+                  <span className="text-[9px] font-semibold text-red-600 bg-red-100 dark:bg-red-950/60 px-1.5 py-0.5 rounded">Au moins 1</span>
                   <span className="text-[9px] font-normal text-violet-600 ml-auto">{selectedGaranties.length} sélectionnée{selectedGaranties.length > 1 ? 's' : ''}</span>
                 </label>
                 <div className="grid grid-cols-2 gap-1.5">
@@ -620,15 +825,15 @@ export function ContratsView({
               <div>
                 <label className="flex items-center gap-2 text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1.5">
                   <Users className="h-3.5 w-3.5 text-zinc-500" />
-                  <span>5. Bénéficiaire</span>
-                  <span className="text-[9px] font-normal text-zinc-400 ml-auto">Facultatif</span>
+                  <span>5. Bénéficiaire désigné</span>
+                  <span className="text-[9px] font-normal text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded ml-auto">Facultatif</span>
                 </label>
                 <select
                   value={beneficiaire}
                   onChange={(e) => setBeneficiaire(e.target.value)}
                   className="w-full rounded-xl border border-zinc-300 bg-white p-2 text-xs focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                 >
-                  <option value="">— Aucun bénéficiaire —</option>
+                  <option value="">— Aucun bénéficiaire (facultatif) —</option>
                   {beneficiairesList.map((b) => (
                     <option key={b.id} value={b.id}>
                       {b.prenom} {b.nom} ({b.id})
@@ -639,8 +844,10 @@ export function ContratsView({
 
               {/* ── 6. Numéro de police ───────────────────────────────── */}
               <div>
-                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
-                  6. Numéro de Police
+                <label className="flex items-center gap-1.5 text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                  <span>6. Numéro de Police contractuelle</span>
+                  <span className="text-red-500 font-bold">*</span>
+                  <span className="text-[9px] font-semibold text-red-600 bg-red-100 dark:bg-red-950/60 px-1.5 py-0.5 rounded">Obligatoire</span>
                 </label>
                 <input
                   type="text"
@@ -655,13 +862,16 @@ export function ContratsView({
               {/* ── 7. Prime + Franchise ──────────────────────────────── */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="flex items-center gap-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
-                    <DollarSign className="h-3 w-3 text-zinc-500" />
-                    Prime Annuelle (DT)
+                  <label className="flex items-center gap-1 text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                    <DollarSign className="h-3 w-3 text-emerald-600" />
+                    <span>Prime Annuelle (DT)</span>
+                    <span className="text-red-500 font-bold">*</span>
                   </label>
                   <input
                     type="number"
                     required
+                    min="1"
+                    step="0.01"
                     value={montantPrime}
                     onChange={(e) => setMontantPrime(e.target.value)}
                     placeholder="Ex: 650"
@@ -669,13 +879,15 @@ export function ContratsView({
                   />
                 </div>
                 <div>
-                  <label className="flex items-center gap-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label className="flex items-center gap-1 text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
                     <DollarSign className="h-3 w-3 text-zinc-500" />
-                    Franchise (DT)
+                    <span>Franchise (DT)</span>
+                    <span className="text-[9px] font-normal text-zinc-400 ml-auto">Optionnel</span>
                   </label>
                   <input
                     type="number"
-                    required
+                    min="0"
+                    step="0.01"
                     value={franchise}
                     onChange={(e) => setFranchise(e.target.value)}
                     placeholder="Ex: 150"
@@ -687,9 +899,10 @@ export function ContratsView({
               {/* ── 8. Dates ──────────────────────────────────────────── */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="flex items-center gap-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
-                    <Calendar className="h-3 w-3 text-zinc-500" />
-                    Date Début
+                  <label className="flex items-center gap-1 text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                    <Calendar className="h-3 w-3 text-emerald-600" />
+                    <span>Date Début d'effet</span>
+                    <span className="text-red-500 font-bold">*</span>
                   </label>
                   <input
                     type="date"
@@ -700,9 +913,10 @@ export function ContratsView({
                   />
                 </div>
                 <div>
-                  <label className="flex items-center gap-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
-                    <Calendar className="h-3 w-3 text-zinc-500" />
-                    Date Fin
+                  <label className="flex items-center gap-1 text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                    <Calendar className="h-3 w-3 text-emerald-600" />
+                    <span>Date Fin d'échéance</span>
+                    <span className="text-red-500 font-bold">*</span>
                   </label>
                   <input
                     type="date"
@@ -728,6 +942,281 @@ export function ContratsView({
                   className="rounded-xl bg-emerald-600 px-5 py-2 text-xs font-bold text-white shadow hover:bg-emerald-700 transition-colors"
                 >
                   Créer le contrat
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════
+          MODAL — MODIFIER UN CONTRAT (Agent & Admin)
+          Mise à jour directe dans l'ontologie RDF/OWL
+         ══════════════════════════════════════════════════════════════════ */}
+      {isEditModalOpen && editTarget && canEditContrat && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-700 p-6 text-white relative sticky top-0 z-10">
+              <button
+                onClick={() => {
+                  setIsEditModalOpen(false);
+                  setEditTarget(null);
+                }}
+                className="absolute right-4 top-4 rounded-full bg-white/10 p-1.5 text-white hover:bg-white/20 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+              <div className="flex items-center gap-2 mb-1">
+                <Pencil className="h-5 w-5 text-blue-200" />
+                <h2 className="text-lg font-bold font-serif">Modifier le Contrat d'Assurance</h2>
+              </div>
+              <p className="text-xs text-blue-100 font-mono">
+                Police #{editTarget.numeroContrat || editTarget.contrat} — {editTarget.contrat}
+              </p>
+            </div>
+
+            <form onSubmit={handleEditContrat} className="p-6 space-y-4">
+              {/* Encart informatif */}
+              <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-3 text-xs text-blue-900 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-200 flex items-center justify-between">
+                <span>Modification des propriétés RDF et relations OWL dans <code className="font-mono">assurance.rdf</code>.</span>
+                <span className="text-[10px] bg-blue-200/80 dark:bg-blue-800 text-blue-950 dark:text-blue-100 px-2 py-0.5 rounded-full font-bold">
+                  Édition OWL
+                </span>
+              </div>
+
+              {editFormError && (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800 flex items-center gap-2">
+                  <ShieldAlert className="h-4 w-4 text-red-600 shrink-0" />
+                  <span>{editFormError}</span>
+                </div>
+              )}
+
+              {/* ── 1. Assuré souscripteur ──────────────────────────── */}
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 space-y-1.5">
+                <label className="flex items-center gap-2 text-xs font-bold text-emerald-900">
+                  <User className="h-3.5 w-3.5 text-emerald-600" />
+                  <span>1. Assuré souscripteur</span>
+                  <span className="text-red-500 font-bold">*</span>
+                  <span className="text-[9px] font-semibold text-red-600 bg-red-100 dark:bg-red-950/60 px-1.5 py-0.5 rounded">Obligatoire</span>
+                </label>
+                <select
+                  value={editAssure}
+                  onChange={(e) => setEditAssure(e.target.value)}
+                  required
+                  className="w-full rounded-lg border border-emerald-200 bg-white p-2 text-xs focus:border-blue-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                >
+                  <option value="">— Sélectionner un assuré (obligatoire) —</option>
+                  {assuresList.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.prenom} {a.nom} ({a.id})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* ── 2. Habitation ─────────────────────────────────────── */}
+              <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-3 space-y-1.5">
+                <label className="flex items-center gap-2 text-xs font-bold text-blue-900">
+                  <Home className="h-3.5 w-3.5 text-blue-600" />
+                  <span>2. Habitation couverte</span>
+                  <span className="text-red-500 font-bold">*</span>
+                  <span className="text-[9px] font-semibold text-red-600 bg-red-100 dark:bg-red-950/60 px-1.5 py-0.5 rounded">Obligatoire</span>
+                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  {HABITATIONS.map((h) => (
+                    <button
+                      key={h.id}
+                      type="button"
+                      onClick={() => setEditHabitation(h.id)}
+                      className={`flex flex-col items-center gap-1 rounded-xl border p-2 text-[11px] font-semibold transition-all ${
+                        editHabitation === h.id
+                          ? 'border-blue-500 bg-blue-100 text-blue-800 shadow-sm ring-1 ring-blue-300'
+                          : 'border-zinc-200 bg-white text-zinc-600 hover:border-blue-300'
+                      }`}
+                    >
+                      <span className="text-lg">{h.icon}</span>
+                      <span>{h.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── 3. Type de contrat ────────────────────────────────── */}
+              <div>
+                <label className="flex items-center gap-2 text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                  <FileCheck2 className="h-3.5 w-3.5 text-zinc-500" />
+                  <span>3. Formule de contrat</span>
+                  <span className="text-red-500 font-bold">*</span>
+                </label>
+                <select
+                  value={editType}
+                  onChange={(e) => setEditType(e.target.value)}
+                  required
+                  className="w-full rounded-xl border border-zinc-300 bg-white p-2 text-xs focus:border-blue-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                >
+                  <option value="ContratProprietaire">Propriétaire (Résidence principale / secondaire)</option>
+                  <option value="ContratLocataire">Locataire (Risques locatifs)</option>
+                  <option value="ContratCopropriete">Copropriété (Immeuble / Parties communes)</option>
+                </select>
+              </div>
+
+              {/* ── 4. Garanties (multi-sélection) ───────────────────── */}
+              <div className="rounded-xl border border-violet-200 bg-violet-50/50 p-3 space-y-1.5">
+                <label className="flex items-center gap-2 text-xs font-bold text-violet-900">
+                  <Shield className="h-3.5 w-3.5 text-violet-600" />
+                  <span>4. Garanties souscrites</span>
+                  <span className="text-red-500 font-bold">*</span>
+                  <span className="text-[9px] font-semibold text-red-600 bg-red-100 dark:bg-red-950/60 px-1.5 py-0.5 rounded">Au moins 1</span>
+                  <span className="text-[9px] font-normal text-violet-600 ml-auto">{editSelectedGaranties.length} sélectionnée{editSelectedGaranties.length > 1 ? 's' : ''}</span>
+                </label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {GARANTIES_DISPONIBLES.map((g) => (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => toggleEditGarantie(g.id)}
+                      className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-[11px] font-medium transition-all text-left ${
+                        editSelectedGaranties.includes(g.id)
+                          ? 'border-violet-500 bg-violet-100 text-violet-800 shadow-sm'
+                          : 'border-zinc-200 bg-white text-zinc-600 hover:border-violet-300'
+                      }`}
+                    >
+                      <span>{g.icon}</span>
+                      <span className="flex-1">{g.label}</span>
+                      {editSelectedGaranties.includes(g.id) && (
+                        <CheckSquare className="h-3.5 w-3.5 text-violet-600 shrink-0" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── 5. Bénéficiaire (facultatif) ─────────────────────── */}
+              <div>
+                <label className="flex items-center gap-2 text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                  <Users className="h-3.5 w-3.5 text-zinc-500" />
+                  <span>5. Bénéficiaire désigné</span>
+                  <span className="text-[9px] font-normal text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded ml-auto">Facultatif</span>
+                </label>
+                <select
+                  value={editBeneficiaire}
+                  onChange={(e) => setEditBeneficiaire(e.target.value)}
+                  className="w-full rounded-xl border border-zinc-300 bg-white p-2 text-xs focus:border-blue-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                >
+                  <option value="">— Aucun bénéficiaire (facultatif) —</option>
+                  {beneficiairesList.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.prenom} {b.nom} ({b.id})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* ── 6. Numéro de police ───────────────────────────────── */}
+              <div>
+                <label className="flex items-center gap-1.5 text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                  <span>6. Numéro de Police contractuelle</span>
+                  <span className="text-red-500 font-bold">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editNumeroContrat}
+                  onChange={(e) => setEditNumeroContrat(e.target.value)}
+                  placeholder="Ex: C-2026-004"
+                  className="w-full rounded-xl border border-zinc-300 p-2 text-xs font-mono focus:border-blue-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                />
+              </div>
+
+              {/* ── 7. Prime + Franchise ──────────────────────────────── */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="flex items-center gap-1 text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                    <DollarSign className="h-3 w-3 text-blue-600" />
+                    <span>Prime Annuelle (DT)</span>
+                    <span className="text-red-500 font-bold">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    step="0.01"
+                    value={editMontantPrime}
+                    onChange={(e) => setEditMontantPrime(e.target.value)}
+                    placeholder="Ex: 650"
+                    className="w-full rounded-xl border border-zinc-300 p-2 text-xs focus:border-blue-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  />
+                </div>
+                <div>
+                  <label className="flex items-center gap-1 text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                    <DollarSign className="h-3 w-3 text-zinc-500" />
+                    <span>Franchise (DT)</span>
+                    <span className="text-[9px] font-normal text-zinc-400 ml-auto">Optionnel</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editFranchise}
+                    onChange={(e) => setEditFranchise(e.target.value)}
+                    placeholder="Ex: 150"
+                    className="w-full rounded-xl border border-zinc-300 p-2 text-xs focus:border-blue-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  />
+                </div>
+              </div>
+
+              {/* ── 8. Dates ──────────────────────────────────────────── */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="flex items-center gap-1 text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                    <Calendar className="h-3 w-3 text-blue-600" />
+                    <span>Date Début d'effet</span>
+                    <span className="text-red-500 font-bold">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editDateDebut.split('T')[0]}
+                    onChange={(e) => setEditDateDebut(`${e.target.value}T00:00:00`)}
+                    className="w-full rounded-xl border border-zinc-300 p-2 text-xs focus:border-blue-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  />
+                </div>
+                <div>
+                  <label className="flex items-center gap-1 text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                    <Calendar className="h-3 w-3 text-blue-600" />
+                    <span>Date Fin d'échéance</span>
+                    <span className="text-red-500 font-bold">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editDateFin.split('T')[0]}
+                    onChange={(e) => setEditDateFin(`${e.target.value}T00:00:00`)}
+                    className="w-full rounded-xl border border-zinc-300 p-2 text-xs focus:border-blue-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  />
+                </div>
+              </div>
+
+              {/* Submit */}
+              <div className="flex justify-end gap-2 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditModalOpen(false);
+                    setEditTarget(null);
+                  }}
+                  className="rounded-xl border border-zinc-300 px-4 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={editLoading}
+                  className="rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white shadow hover:bg-blue-700 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {editLoading && <RefreshCw className="h-3.5 w-3.5 animate-spin" />}
+                  <span>Enregistrer les modifications</span>
                 </button>
               </div>
             </form>
