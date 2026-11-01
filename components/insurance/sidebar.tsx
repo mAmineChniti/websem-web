@@ -1,16 +1,18 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   LayoutDashboard,
   Users,
   User,
   FileCheck2,
   Terminal,
+  Code2,
   ShieldCheck,
   PlusCircle,
   BookOpen,
-  HelpCircle
+  HelpCircle,
+  RefreshCw,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -72,7 +74,15 @@ export function Sidebar({
       icon: Terminal,
       badge: 'IA',
       badgeColor: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300',
-      description: 'Interrogation semantique en francais',
+      description: 'Interrogation sémantique en français',
+    }] : []),
+    ...(userRole === 'Admin' ? [{
+      id: 'sparql-explorer',
+      label: 'Explorateur SPARQL',
+      icon: Code2,
+      badge: '12',
+      badgeColor: 'bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300',
+      description: 'Console SPARQL interactive (démo technique)',
     }] : []),
   ];
 

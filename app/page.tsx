@@ -7,6 +7,7 @@ import { DashboardView } from '@/components/insurance/dashboard-view';
 import { PersonnesView } from '@/components/insurance/personnes-view';
 import { ContratsView } from '@/components/insurance/contrats-view';
 import { SemanticWebView } from '@/components/insurance/semantic-web-view';
+import { SparqlExplorerView } from '@/components/insurance/sparql-explorer-view';
 import { AuthModal } from '@/components/insurance/auth-modal';
 import { LandingPage } from '@/components/insurance/landing-page';
 
@@ -242,6 +243,10 @@ export default function Home() {
 
           {currentTab === 'sparql' && (
             <SemanticWebView userRole={user?.role || 'Assure'} />
+          )}
+
+          {currentTab === 'sparql-explorer' && (
+            <SparqlExplorerView userRole={user?.role || 'Assure'} />
           )}
         </main>
       </div>

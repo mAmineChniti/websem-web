@@ -146,6 +146,29 @@ export function PersonnesView({ userRole = 'Assure', currentUser, onCountChange 
     if (!editTarget) return;
     setEditLoading(true);
     setEditError(null);
+
+    // Validation stricte des champs obligatoires
+    if (!editPrenom.trim()) {
+      setEditError("Champ obligatoire manquant : Le prénom est obligatoire.");
+      return;
+    }
+    if (!editNom.trim()) {
+      setEditError("Champ obligatoire manquant : Le nom de famille est obligatoire.");
+      return;
+    }
+    if (!editCin.trim()) {
+      setEditError("Champ obligatoire manquant : Le numéro de CIN est obligatoire.");
+      return;
+    }
+    if (!editTelephone.trim()) {
+      setEditError("Champ obligatoire manquant : Le numéro de téléphone de contact est obligatoire.");
+      return;
+    }
+    if (!editAdresse.trim()) {
+      setEditError("Champ obligatoire manquant : L'adresse du domicile est obligatoire.");
+      return;
+    }
+
     try {
       // 1. Update fields
       const res = await fetch(`${apiUrl}/api/ontology/personnes/${editTarget.personne}`, {
@@ -250,6 +273,29 @@ export function PersonnesView({ userRole = 'Assure', currentUser, onCountChange 
       setFormError("Droits insuffisants : Un Agent peut uniquement enregistrer des Assurés et des Bénéficiaires.");
       return;
     }
+
+    // Validation stricte des champs obligatoires
+    if (!prenom.trim()) {
+      setFormError("Champ obligatoire manquant : Le prénom de la personne est obligatoire.");
+      return;
+    }
+    if (!nom.trim()) {
+      setFormError("Champ obligatoire manquant : Le nom de famille est obligatoire.");
+      return;
+    }
+    if (!cin.trim()) {
+      setFormError("Champ obligatoire manquant : Le numéro de CIN est obligatoire.");
+      return;
+    }
+    if (!telephone.trim()) {
+      setFormError("Champ obligatoire manquant : Le numéro de téléphone de contact est obligatoire.");
+      return;
+    }
+    if (!adresse.trim()) {
+      setFormError("Champ obligatoire manquant : L'adresse du domicile est obligatoire.");
+      return;
+    }
+
 
     try {
       const res = await fetch(`${apiUrl}/api/ontology/personnes`, {
@@ -844,36 +890,58 @@ export function PersonnesView({ userRole = 'Assure', currentUser, onCountChange 
                   <span>{editError}</span>
                 </div>
               )}
+              {/* Encart informatif */}
+              <div className="rounded-xl border border-indigo-200 bg-indigo-50/70 p-3 text-xs text-indigo-900 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-200 flex items-center justify-between">
+                <span>Tous les champs avec (<span className="text-red-500 font-bold">*</span>) sont <strong>obligatoires</strong>.</span>
+                <span className="text-[10px] bg-indigo-200/80 dark:bg-indigo-800 text-indigo-950 dark:text-indigo-100 px-2 py-0.5 rounded-full font-bold">
+                  Édition OWL
+                </span>
+              </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Prenom</label>
-                  <input type="text" value={editPrenom} onChange={e => setEditPrenom(e.target.value)}
+                  <label className="flex items-center gap-1 text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                    <span>Prénom</span>
+                    <span className="text-red-500 font-bold">*</span>
+                  </label>
+                  <input type="text" required value={editPrenom} onChange={e => setEditPrenom(e.target.value)}
                     className="w-full rounded-xl border border-zinc-300 bg-white py-2 px-3 text-xs focus:border-indigo-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Nom</label>
-                  <input type="text" value={editNom} onChange={e => setEditNom(e.target.value)}
+                  <label className="flex items-center gap-1 text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                    <span>Nom</span>
+                    <span className="text-red-500 font-bold">*</span>
+                  </label>
+                  <input type="text" required value={editNom} onChange={e => setEditNom(e.target.value)}
                     className="w-full rounded-xl border border-zinc-300 bg-white py-2 px-3 text-xs focus:border-indigo-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">CIN</label>
-                  <input type="text" value={editCin} onChange={e => setEditCin(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-300 bg-white py-2 px-3 text-xs focus:border-indigo-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100" />
+                  <label className="flex items-center gap-1 text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                    <span>Numéro de CIN</span>
+                    <span className="text-red-500 font-bold">*</span>
+                  </label>
+                  <input type="text" required value={editCin} onChange={e => setEditCin(e.target.value)}
+                    className="w-full rounded-xl border border-zinc-300 bg-white py-2 px-3 text-xs font-mono focus:border-indigo-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Telephone</label>
-                  <input type="text" value={editTelephone} onChange={e => setEditTelephone(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-300 bg-white py-2 px-3 text-xs focus:border-indigo-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100" />
+                  <label className="flex items-center gap-1 text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                    <span>Téléphone</span>
+                    <span className="text-red-500 font-bold">*</span>
+                  </label>
+                  <input type="text" required value={editTelephone} onChange={e => setEditTelephone(e.target.value)}
+                    className="w-full rounded-xl border border-zinc-300 bg-white py-2 px-3 text-xs font-mono focus:border-indigo-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100" />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Adresse</label>
-                <input type="text" value={editAdresse} onChange={e => setEditAdresse(e.target.value)}
+                <label className="flex items-center gap-1 text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                  <span>Adresse du domicile</span>
+                  <span className="text-red-500 font-bold">*</span>
+                </label>
+                <input type="text" required value={editAdresse} onChange={e => setEditAdresse(e.target.value)}
                   className="w-full rounded-xl border border-zinc-300 bg-white py-2 px-3 text-xs focus:border-indigo-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100" />
               </div>
 
@@ -881,26 +949,25 @@ export function PersonnesView({ userRole = 'Assure', currentUser, onCountChange 
               {isAdmin && (
                 <div>
                   <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
-                    Role ontologique
+                    Rôle ontologique
                   </label>
                   <select
                     value={editRole}
                     onChange={e => setEditRole(e.target.value)}
                     className="w-full rounded-xl border border-zinc-300 bg-white py-2 px-3 text-xs focus:border-indigo-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                   >
-                    <option value="Assure">Assure</option>
+                    <option value="Assure">Assuré</option>
                     <option value="Agent">Agent</option>
                     <option value="Expert">Expert</option>
-                    <option value="Beneficiaire">Beneficiaire</option>
+                    <option value="Beneficiaire">Bénéficiaire</option>
                   </select>
                   {editRole !== editTarget?.type && (
                     <p className="mt-1 text-[10px] text-amber-600 font-medium">
-                      Le role sera change de {editTarget?.type} vers {editRole}
+                      Le rôle sera changé de {editTarget?.type} vers {editRole}
                     </p>
                   )}
                 </div>
               )}
-
               <div className="flex gap-2 pt-1">
                 <button type="button" onClick={() => setEditTarget(null)}
                   className="flex-1 rounded-xl border border-zinc-300 py-2.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 transition-colors">
@@ -990,7 +1057,7 @@ export function PersonnesView({ userRole = 'Assure', currentUser, onCountChange 
               >
                 <X className="h-4 w-4" />
               </button>
-              <h2 className="text-lg font-bold font-serif">Ajouter une Personne à l'Ontologie</h2>
+              <h2 className="text-lg font-bold font-serif">Ajouter une Personne</h2>
               <p className="text-xs text-blue-100">
                 {userRole === 'Agent'
                   ? "Inscription d'un souscripteur (Assuré ou Bénéficiaire)"
@@ -1005,10 +1072,19 @@ export function PersonnesView({ userRole = 'Assure', currentUser, onCountChange 
                   <span>{formError}</span>
                 </div>
               )}
+              {/* Encart informatif sur les champs obligatoires */}
+              <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-3 text-xs text-blue-900 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-200 flex items-center justify-between">
+                <span>Tous les champs avec (<span className="text-red-500 font-bold">*</span>) sont <strong>obligatoires</strong>.</span>
+                <span className="text-[10px] bg-blue-200/80 dark:bg-blue-800 text-blue-950 dark:text-blue-100 px-2 py-0.5 rounded-full font-bold">
+                  Validation stricte
+                </span>
+              </div>
 
               <div>
-                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
-                  Rôle ontologique à attribuer
+                <label className="flex items-center gap-1.5 text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                  <span>Rôle ontologique à attribuer</span>
+                  <span className="text-red-500 font-bold">*</span>
+                  <span className="text-[9px] font-semibold text-red-600 bg-red-100 dark:bg-red-950/60 px-1.5 py-0.5 rounded ml-auto">Obligatoire</span>
                 </label>
                 <select
                   value={newRole}
@@ -1029,7 +1105,11 @@ export function PersonnesView({ userRole = 'Assure', currentUser, onCountChange 
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Prénom</label>
+                  <label className="flex items-center gap-1 text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                    <span>Prénom</span>
+                    <span className="text-red-500 font-bold">*</span>
+                    <span className="text-[9px] font-semibold text-red-600 bg-red-100 dark:bg-red-950/60 px-1.5 py-0.5 rounded ml-auto">Obligatoire</span>
+                  </label>
                   <input
                     type="text"
                     required
@@ -1040,7 +1120,11 @@ export function PersonnesView({ userRole = 'Assure', currentUser, onCountChange 
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Nom</label>
+                  <label className="flex items-center gap-1 text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                    <span>Nom</span>
+                    <span className="text-red-500 font-bold">*</span>
+                    <span className="text-[9px] font-semibold text-red-600 bg-red-100 dark:bg-red-950/60 px-1.5 py-0.5 rounded ml-auto">Obligatoire</span>
+                  </label>
                   <input
                     type="text"
                     required
@@ -1054,31 +1138,43 @@ export function PersonnesView({ userRole = 'Assure', currentUser, onCountChange 
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">CIN</label>
+                  <label className="flex items-center gap-1 text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                    <span>Numéro de CIN</span>
+                    <span className="text-red-500 font-bold">*</span>
+                    <span className="text-[9px] font-semibold text-red-600 bg-red-100 dark:bg-red-950/60 px-1.5 py-0.5 rounded ml-auto">Obligatoire</span>
+                  </label>
                   <input
                     type="text"
                     required
                     value={cin}
                     onChange={(e) => setCin(e.target.value)}
                     placeholder="Ex: 08123456"
-                    className="w-full rounded-xl border border-zinc-300 p-2 text-xs focus:border-blue-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                    className="w-full rounded-xl border border-zinc-300 p-2 text-xs font-mono focus:border-blue-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Téléphone</label>
+                  <label className="flex items-center gap-1 text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                    <span>Téléphone</span>
+                    <span className="text-red-500 font-bold">*</span>
+                    <span className="text-[9px] font-semibold text-red-600 bg-red-100 dark:bg-red-950/60 px-1.5 py-0.5 rounded ml-auto">Obligatoire</span>
+                  </label>
                   <input
                     type="text"
                     required
                     value={telephone}
                     onChange={(e) => setTelephone(e.target.value)}
                     placeholder="Ex: 20123456"
-                    className="w-full rounded-xl border border-zinc-300 p-2 text-xs focus:border-blue-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                    className="w-full rounded-xl border border-zinc-300 p-2 text-xs font-mono focus:border-blue-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Adresse</label>
+                <label className="flex items-center gap-1 text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                  <span>Adresse du domicile</span>
+                  <span className="text-red-500 font-bold">*</span>
+                  <span className="text-[9px] font-semibold text-red-600 bg-red-100 dark:bg-red-950/60 px-1.5 py-0.5 rounded ml-auto">Obligatoire</span>
+                </label>
                 <input
                   type="text"
                   required
@@ -1088,7 +1184,6 @@ export function PersonnesView({ userRole = 'Assure', currentUser, onCountChange 
                   className="w-full rounded-xl border border-zinc-300 p-2 text-xs focus:border-blue-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                 />
               </div>
-
               <div className="flex justify-end gap-2 pt-3">
                 <button
                   type="button"
