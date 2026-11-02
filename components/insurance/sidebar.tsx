@@ -13,6 +13,8 @@ import {
   BookOpen,
   HelpCircle,
   RefreshCw,
+  AlertTriangle,
+  Scale,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -21,6 +23,8 @@ interface SidebarProps {
   openContratModal?: () => void;
   personnesCount: number;
   contratsCount: number;
+  dommagesCount?: number;
+  clausesCount?: number;
   userRole?: string;
 }
 
@@ -29,6 +33,8 @@ export function Sidebar({
   onSelectTab,
   personnesCount,
   contratsCount,
+  dommagesCount,
+  clausesCount,
   userRole = 'Assure'
 }: SidebarProps) {
   const isAssure = userRole === 'Assure';
@@ -67,6 +73,22 @@ export function Sidebar({
       badge: `${contratsCount}`,
       badgeColor: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
       description: 'Propriétaire, Locataire, Copropriété',
+    },
+    {
+      id: 'dommages',
+      label: 'Dommages',
+      icon: AlertTriangle,
+      badge: dommagesCount !== undefined ? `${dommagesCount}` : null,
+      badgeColor: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300',
+      description: 'Matériels, Corporels & Immatériels',
+    },
+    {
+      id: 'clauses',
+      label: 'Clauses',
+      icon: Scale,
+      badge: clausesCount !== undefined ? `${clausesCount}` : null,
+      badgeColor: 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300',
+      description: 'Exclusions, Franchises & Obligations',
     },
     ...(userRole !== 'Assure' ? [{
       id: 'sparql',

@@ -10,6 +10,8 @@ import { SemanticWebView } from '@/components/insurance/semantic-web-view';
 import { SparqlExplorerView } from '@/components/insurance/sparql-explorer-view';
 import { AuthModal } from '@/components/insurance/auth-modal';
 import { LandingPage } from '@/components/insurance/landing-page';
+import { DommagesView } from '@/components/insurance/dommages-view';
+import { ClausesView } from '@/components/insurance/clauses-view';
 
 interface UserSession {
   name: string;
@@ -25,6 +27,8 @@ export default function Home() {
   const [personnesCount, setPersonnesCount] = useState<number>(4);
   const [assuresCount, setAssuresCount] = useState<number>(4);
   const [contratsCount, setContratsCount] = useState<number>(3);
+  const [dommagesCount, setDommagesCount] = useState<number>(1);
+  const [clausesCount, setClausesCount] = useState<number>(1);
 
   // Security & Authentication State
   const [user, setUser] = useState<UserSession | null>(null);
@@ -124,6 +128,22 @@ export default function Home() {
         }
       })
       .catch(() => {});
+
+    // 3. Dommages count
+    fetch(`${apiUrl}/api/dommages/`)
+      .then(res => res.ok ? res.json() : [])
+      .then((data: any[]) => {
+        if (Array.isArray(data)) setDommagesCount(data.length);
+      })
+      .catch(() => {});
+
+    // 4. Clauses count
+    fetch(`${apiUrl}/api/clauses/`)
+      .then(res => res.ok ? res.json() : [])
+      .then((data: any[]) => {
+        if (Array.isArray(data)) setClausesCount(data.length);
+      })
+      .catch(() => {});
   }, [apiUrl, user?.role, user?.ontology_id, user?.name]);
 
   // Auth Handlers
@@ -194,6 +214,8 @@ export default function Home() {
           onSelectTab={setCurrentTab}
           personnesCount={personnesCount}
           contratsCount={contratsCount}
+          dommagesCount={dommagesCount}
+          clausesCount={clausesCount}
           userRole={user?.role || 'Assure'}
         />
 
@@ -248,6 +270,21 @@ export default function Home() {
           {currentTab === 'sparql-explorer' && (
             <SparqlExplorerView userRole={user?.role || 'Assure'} />
           )}
+
+          {currentTab === 'dommages' && (
+            <DommagesView
+              userRole={user?.role}
+              onCountChange={setDommagesCount}
+            />
+          )}
+
+          {currentTab === 'clauses' && (
+            <ClausesView
+              userRole={user?.role}
+              onCountChange={setClausesCount}
+            />
+          )}
+
         </main>
       </div>
 

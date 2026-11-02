@@ -11,7 +11,9 @@ import {
   ShieldCheck, 
   Sparkles,
   ChevronRight,
-  Database
+  Database,
+  AlertTriangle,
+  Scale,
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -23,6 +25,8 @@ export function DashboardView({ onSelectTab, userRole }: DashboardViewProps) {
   const [stats, setStats] = useState<any>(null);
   const [personnes, setPersonnes] = useState<any[]>([]);
   const [contrats, setContrats] = useState<any[]>([]);
+  const [dommagesCount, setDommagesCount] = useState<number>(0);
+  const [clausesCount, setClausesCount] = useState<number>(0);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -40,6 +44,16 @@ export function DashboardView({ onSelectTab, userRole }: DashboardViewProps) {
     fetch(`${apiUrl}/api/ontology/contrats`)
       .then((r) => r.json())
       .then((d) => setContrats(d.filter((c: any) => c.contrat !== 'souscritContrat' && c.contrat !== 'numeroContrat' && c.typeContrat !== 'ObjectProperty' && c.typeContrat !== 'FunctionalProperty' && c.typeContrat !== 'DatatypeProperty')))
+      .catch((e) => console.warn(e));
+
+    fetch(`${apiUrl}/api/dommages/`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setDommagesCount(Array.isArray(d) ? d.length : 0))
+      .catch((e) => console.warn(e));
+
+    fetch(`${apiUrl}/api/clauses/`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setClausesCount(Array.isArray(d) ? d.length : 0))
       .catch((e) => console.warn(e));
   }, []);
 
@@ -75,6 +89,20 @@ export function DashboardView({ onSelectTab, userRole }: DashboardViewProps) {
               <Users className="h-4 w-4 text-blue-300" />
               <span>{userRole === 'Assure' ? 'Mon Profil Assuré' : 'Voir les Personnes'}</span>
             </button>
+            <button
+              onClick={() => onSelectTab('dommages')}
+              className="inline-flex items-center gap-2 rounded-xl bg-amber-500/20 px-4 py-2 text-xs font-semibold text-amber-200 backdrop-blur hover:bg-amber-500/30 transition-colors border border-amber-400/30"
+            >
+              <AlertTriangle className="h-4 w-4 text-amber-300" />
+              <span>Dommages ({dommagesCount})</span>
+            </button>
+            <button
+              onClick={() => onSelectTab('clauses')}
+              className="inline-flex items-center gap-2 rounded-xl bg-purple-500/20 px-4 py-2 text-xs font-semibold text-purple-200 backdrop-blur hover:bg-purple-500/30 transition-colors border border-purple-400/30"
+            >
+              <Scale className="h-4 w-4 text-purple-300" />
+              <span>Clauses ({clausesCount})</span>
+            </button>
           </div>
         </div>
 
@@ -84,7 +112,7 @@ export function DashboardView({ onSelectTab, userRole }: DashboardViewProps) {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {/* KPI 1 : Personnes / Profil */}
         <div 
           onClick={() => onSelectTab('personnes')}
@@ -198,6 +226,50 @@ export function DashboardView({ onSelectTab, userRole }: DashboardViewProps) {
             </p>
           </div>
         )}
+
+        {/* KPI 5 : Dommages (Module Montaha) */}
+        <div 
+          onClick={() => onSelectTab('dommages')}
+          className="cursor-pointer rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm hover:shadow-md transition-all dark:border-zinc-800 dark:bg-zinc-900"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-zinc-500">Dommages Déclarés</span>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400">
+              <AlertTriangle className="h-4 w-4" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+              {dommagesCount}
+            </span>
+            <span className="text-xs font-semibold text-amber-600">Sinistres liés</span>
+          </div>
+          <p className="mt-1 text-[11px] text-zinc-500">
+            Matériels, Corporels & Immatériels
+          </p>
+        </div>
+
+        {/* KPI 6 : Clauses (Module Montaha) */}
+        <div 
+          onClick={() => onSelectTab('clauses')}
+          className="cursor-pointer rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm hover:shadow-md transition-all dark:border-zinc-800 dark:bg-zinc-900"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-zinc-500">Clauses Juridiques</span>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-400">
+              <Scale className="h-4 w-4" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+              {clausesCount}
+            </span>
+            <span className="text-xs font-semibold text-purple-600">Clauses actives</span>
+          </div>
+          <p className="mt-1 text-[11px] text-zinc-500">
+            Exclusions, Franchises & Obligations
+          </p>
+        </div>
       </div>
 
       {/* Main Grid: Contracts & Persons Preview */}
