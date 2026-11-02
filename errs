@@ -1,0 +1,77 @@
+
+/home/amine/GitHub/websem-web/app/page.tsx
+  27:10  warning  'assuresCount' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-unused-vars
+  27:24  warning  'setAssuresCount' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   @typescript-eslint/no-unused-vars
+  42:5   error    Try block has a complexity of 3. Maximum allowed is 1                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  unicorn/try-complexity
+  48:11  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/amine/GitHub/websem-web/app/page.tsx:48:11
+  46 |         // Only restore if actually connected
+  47 |         if (parsed.isConnected) {
+> 48 |           setUser(parsed);
+     |           ^^^^^^^ Avoid calling setState() directly within an effect
+  49 |         }
+  50 |       }
+  51 |       // No default demo session — user must log in explicitly  react-hooks/set-state-in-effect
+  62:7   error    Try block has a complexity of 4. Maximum allowed is 1                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  unicorn/try-complexity
+  86:6   warning  React Hook useEffect has a missing dependency: 'user'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                react-hooks/exhaustive-deps
+
+/home/amine/GitHub/websem-web/components/auth-modal.tsx
+  315:63  error  Parsing error: Expression expected
+
+/home/amine/GitHub/websem-web/components/insurance/auth-modal.tsx
+  316:63  error  Parsing error: Expression expected
+
+/home/amine/GitHub/websem-web/components/insurance/contrats-view.tsx
+  563:56  error  Parsing error: Expression expected
+
+/home/amine/GitHub/websem-web/components/insurance/dashboard-view.tsx
+   9:3  warning  'Terminal' is defined but never used                                                                       @typescript-eslint/no-unused-vars
+  10:3  warning  'ArrowUpRight' is defined but never used                                                                   @typescript-eslint/no-unused-vars
+  11:3  warning  'PlusCircle' is defined but never used                                                                     @typescript-eslint/no-unused-vars
+  65:6  warning  React Hook useEffect has a missing dependency: 'apiUrl'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/home/amine/GitHub/websem-web/components/insurance/garanties-view.tsx
+    5:10  warning  'Badge' is defined but never used                                                                                                                                                                   @typescript-eslint/no-unused-vars
+  192:9   warning  The 'garanties' logical expression could make the dependencies of useMemo Hook (at line 236) change on every render. To fix this, wrap the initialization of 'garanties' in its own useMemo() Hook  react-hooks/exhaustive-deps
+  192:9   warning  The 'garanties' logical expression could make the dependencies of useMemo Hook (at line 251) change on every render. To fix this, wrap the initialization of 'garanties' in its own useMemo() Hook  react-hooks/exhaustive-deps
+  288:5   error    Try block has a complexity of 2. Maximum allowed is 1                                                                                                                                               unicorn/try-complexity
+  301:5   error    Try block has a complexity of 3. Maximum allowed is 1                                                                                                                                               unicorn/try-complexity
+
+/home/amine/GitHub/websem-web/components/insurance/header.tsx
+  6:3  warning  'User' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/amine/GitHub/websem-web/components/insurance/personnes-view.tsx
+  1351:44  error  Parsing error: '{' or JSX element expected
+
+/home/amine/GitHub/websem-web/components/insurance/semantic-web-view.tsx
+   28:3  warning  'Zap' is defined but never used                                                                            @typescript-eslint/no-unused-vars
+  496:6  warning  React Hook useEffect has a missing dependency: 'apiUrl'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  504:5  error    Try block has a complexity of 2. Maximum allowed is 1                                                      unicorn/try-complexity
+
+/home/amine/GitHub/websem-web/components/insurance/sidebar.tsx
+   3:17  warning  'useState' is defined but never used    @typescript-eslint/no-unused-vars
+  12:3   warning  'PlusCircle' is defined but never used  @typescript-eslint/no-unused-vars
+  13:3   warning  'BookOpen' is defined but never used    @typescript-eslint/no-unused-vars
+  14:3   warning  'HelpCircle' is defined but never used  @typescript-eslint/no-unused-vars
+  15:3   warning  'RefreshCw' is defined but never used   @typescript-eslint/no-unused-vars
+
+/home/amine/GitHub/websem-web/components/insurance/sinistres-view.tsx
+  257:9  warning  The 'sinistres' logical expression could make the dependencies of useMemo Hook (at line 304) change on every render. To fix this, wrap the initialization of 'sinistres' in its own useMemo() Hook  react-hooks/exhaustive-deps
+  257:9  warning  The 'sinistres' logical expression could make the dependencies of useMemo Hook (at line 322) change on every render. To fix this, wrap the initialization of 'sinistres' in its own useMemo() Hook  react-hooks/exhaustive-deps
+  355:5  error    Try block has a complexity of 8. Maximum allowed is 1                                                                                                                                               unicorn/try-complexity
+  388:5  error    Try block has a complexity of 3. Maximum allowed is 1                                                                                                                                               unicorn/try-complexity
+
+/home/amine/GitHub/websem-web/components/insurance/sparql-explorer-view.tsx
+   3:6  warning  'ApiRecord' is defined but never used                                                                      @typescript-eslint/no-unused-vars
+  83:6  warning  React Hook useEffect has a missing dependency: 'apiUrl'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  97:5  error    Try block has a complexity of 3. Maximum allowed is 1                                                      unicorn/try-complexity
+
+✖ 35 problems (13 errors, 22 warnings)
+
