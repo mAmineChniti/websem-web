@@ -6,10 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write ."
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
+    "@hookform/resolvers": "^7.0.1",
     "@shadcn/react": "^0.3.1",
     "@tanstack/react-query": "^5.105.0",
     "class-variance-authority": "^0.7.1",
@@ -18,11 +21,13 @@
     "date-fns": "^4.4.0",
     "embla-carousel-react": "^8.6.0",
     "input-otp": "^1.5.0",
+    "ky": "^2.2.0",
     "lucide-react": "^1.65.0",
     "next": "16.4.3",
     "react": "19.3.0",
     "react-day-picker": "^10.0.2",
     "react-dom": "19.3.0",
+    "react-hook-form": "^7.91.0",
     "react-resizable-panels": "^4.15.2",
     "recharts": "3.8.0",
     "shadcn": "^4.23.0",
