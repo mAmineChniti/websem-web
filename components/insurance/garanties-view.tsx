@@ -1,7 +1,6 @@
 'use client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -10,12 +9,31 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Field, FieldLabel, FieldError } from '@/components/ui/field';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 import React, { useState, useMemo } from 'react';
 import { useForm, Controller } from 'react-hook-form';
@@ -287,15 +305,22 @@ export function GarantiesView({ userRole = 'Assure' }: GarantiesViewProps) {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Supprimer cette garantie ?')) return;
+  const [deleteTargetId, setDeleteTargetId] = useState<string | undefined>();
+
+  const handleDelete = (id: string) => {
+    setDeleteTargetId(id);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTargetId) return;
     try {
-      await deleteMutation.mutateAsync(id);
+      await deleteMutation.mutateAsync(deleteTargetId);
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'Erreur');
       return;
     }
-    if (detailTarget?.garantie === id) setDetailTarget(undefined);
+    if (detailTarget?.garantie === deleteTargetId) setDetailTarget(undefined);
+    setDeleteTargetId(undefined);
   };
 
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
@@ -436,126 +461,130 @@ export function GarantiesView({ userRole = 'Assure' }: GarantiesViewProps) {
             detailTarget && 'hidden lg:block'
           )}
         >
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50">
-                <tr>
-                  <th className="px-4 py-3 text-left font-semibold">Type</th>
-                  <th className="px-4 py-3 text-left font-semibold">Nom</th>
-                  <th className="px-4 py-3 text-left font-semibold">Plafond</th>
-                  <th className="px-4 py-3 text-left font-semibold">
-                    Franchise
-                  </th>
-                  <th className="px-4 py-3 text-left font-semibold">ID</th>
-                  <th className="px-4 py-3 text-right font-semibold">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {garantiesQuery.isLoading ? (
-                  Array.from({ length: 4 }).map((_, i) => (
-                    <tr key={i} className="border-border border-t">
-                      {Array.from({ length: 6 }).map((_, j) => (
-                        <td key={j} className="px-4 py-3">
-                          <div className="bg-muted h-4 animate-pulse rounded" />
-                        </td>
-                      ))}
-                    </tr>
-                  ))
-                ) : filtered.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="text-muted-foreground px-4 py-12 text-center"
-                    >
-                      <Shield className="mx-auto mb-2 h-8 w-8 opacity-30" />
-                      <p className="font-medium">Aucune garantie</p>
-                      <p className="mt-1 text-xs">
-                        {search || typeFilter !== 'all'
-                          ? 'Essayez de modifier vos filtres'
-                          : canManage
-                            ? 'Créez votre première garantie'
-                            : "Aucune garantie dans l'ontologie"}
-                      </p>
-                    </td>
-                  </tr>
-                ) : (
-                  filtered.map((g) => (
-                    <tr
-                      key={g.garantie}
-                      onClick={() =>
-                        setDetailTarget(
-                          detailTarget?.garantie === g.garantie ? undefined : g
-                        )
-                      }
-                      className={cn(
-                        'border-border hover:bg-muted/40 cursor-pointer border-t transition-colors',
-                        detailTarget?.garantie === g.garantie && 'bg-primary/5'
+          <Table className="text-sm">
+            <TableHeader className="bg-muted/50">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="h-auto px-4 py-3 text-left font-semibold">
+                  Type
+                </TableHead>
+                <TableHead className="h-auto px-4 py-3 text-left font-semibold">
+                  Nom
+                </TableHead>
+                <TableHead className="h-auto px-4 py-3 text-left font-semibold">
+                  Plafond
+                </TableHead>
+                <TableHead className="h-auto px-4 py-3 text-left font-semibold">
+                  Franchise
+                </TableHead>
+                <TableHead className="h-auto px-4 py-3 text-left font-semibold">
+                  ID
+                </TableHead>
+                <TableHead className="h-auto px-4 py-3 text-right font-semibold">
+                  Actions
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {garantiesQuery.isLoading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <TableRow key={i} className="border-border border-t">
+                    {Array.from({ length: 6 }).map((_, j) => (
+                      <TableCell key={j} className="px-4 py-3">
+                        <div className="bg-muted h-4 animate-pulse rounded" />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={6}
+                    className="text-muted-foreground px-4 py-12 text-center whitespace-normal"
+                  >
+                    <Shield className="mx-auto mb-2 h-8 w-8 opacity-30" />
+                    <p className="font-medium">Aucune garantie</p>
+                    <p className="mt-1 text-xs">
+                      {search || typeFilter !== 'all'
+                        ? 'Essayez de modifier vos filtres'
+                        : canManage
+                          ? 'Créez votre première garantie'
+                          : "Aucune garantie dans l'ontologie"}
+                    </p>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filtered.map((g) => (
+                  <TableRow
+                    key={g.garantie}
+                    onClick={() =>
+                      setDetailTarget(
+                        detailTarget?.garantie === g.garantie ? undefined : g
+                      )
+                    }
+                    className={cn(
+                      'border-border hover:bg-muted/40 cursor-pointer border-t',
+                      detailTarget?.garantie === g.garantie && 'bg-primary/5'
+                    )}
+                  >
+                    <TableCell className="px-4 py-3">
+                      <TypeBadge type={g.typeGarantie} />
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-sm font-medium">
+                      {g.nomGarantie || (
+                        <span className="text-muted-foreground italic">—</span>
                       )}
-                    >
-                      <td className="px-4 py-3">
-                        <TypeBadge type={g.typeGarantie} />
-                      </td>
-                      <td className="px-4 py-3 text-sm font-medium">
-                        {g.nomGarantie || (
-                          <span className="text-muted-foreground italic">
-                            —
-                          </span>
-                        )}
-                      </td>
-                      <td className="text-primary px-4 py-3 text-sm font-semibold">
-                        {formatAmount(g.plafondGarantie)}
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        {formatRate(g.tauxFranchise)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-muted-foreground font-mono text-xs">
-                          {g.garantie}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div
-                          className="flex justify-end gap-1"
-                          onClick={(e) => e.stopPropagation()}
+                    </TableCell>
+                    <TableCell className="text-primary px-4 py-3 text-sm font-semibold">
+                      {formatAmount(g.plafondGarantie)}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-sm">
+                      {formatRate(g.tauxFranchise)}
+                    </TableCell>
+                    <TableCell className="px-4 py-3">
+                      <span className="text-muted-foreground font-mono text-xs">
+                        {g.garantie}
+                      </span>
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-right">
+                      <div
+                        className="flex justify-end gap-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => setDetailTarget(g)}
                         >
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0"
-                            onClick={() => setDetailTarget(g)}
-                          >
-                            <ChevronRight className="h-4 w-4" />
-                          </Button>
-                          {canManage && (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 p-0"
-                                onClick={() => openEdit(g)}
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 p-0"
-                                onClick={() => void handleDelete(g.garantie)}
-                              >
-                                <Trash2 className="text-destructive h-3.5 w-3.5" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                        {canManage && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0"
+                              onClick={() => openEdit(g)}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0"
+                              onClick={() => void handleDelete(g.garantie)}
+                            >
+                              <Trash2 className="text-destructive h-3.5 w-3.5" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
 
         {/* Detail Panel */}
@@ -670,8 +699,8 @@ export function GarantiesView({ userRole = 'Assure' }: GarantiesViewProps) {
           </DialogHeader>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             {/* Type */}
-            <div className="space-y-1.5">
-              <Label>Type de garantie</Label>
+            <Field>
+              <FieldLabel>Type de garantie</FieldLabel>
               <Controller
                 name="type"
                 control={form.control}
@@ -697,40 +726,62 @@ export function GarantiesView({ userRole = 'Assure' }: GarantiesViewProps) {
                   </Select>
                 )}
               />
-            </div>
+              <FieldError errors={[form.formState.errors.type]} />
+            </Field>
 
             {/* Nom */}
-            <div className="space-y-1.5">
-              <Label>Nom de la garantie</Label>
-              <Input
-                {...form.register('nomGarantie')}
-                placeholder="Ex: Garantie Incendie Premium"
+            <Field>
+              <FieldLabel>Nom de la garantie</FieldLabel>
+              <Controller
+                name="nomGarantie"
+                control={form.control}
+                render={({ field }) => (
+                  <Input
+                    {...field}
+                    placeholder="Ex: Garantie Incendie Premium"
+                  />
+                )}
               />
-            </div>
+              <FieldError errors={[form.formState.errors.nomGarantie]} />
+            </Field>
 
             {/* Plafond + Franchise */}
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Plafond (DT)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  step={100}
-                  {...form.register('plafondGarantie')}
-                  placeholder="Ex: 50000"
+              <Field>
+                <FieldLabel>Plafond (DT)</FieldLabel>
+                <Controller
+                  name="plafondGarantie"
+                  control={form.control}
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      type="number"
+                      min={0}
+                      step={100}
+                      placeholder="Ex: 50000"
+                    />
+                  )}
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Taux franchise (%)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  max={100}
-                  step={0.5}
-                  {...form.register('franchise')}
-                  placeholder="Ex: 10"
+                <FieldError errors={[form.formState.errors.plafondGarantie]} />
+              </Field>
+              <Field>
+                <FieldLabel>Taux franchise (%)</FieldLabel>
+                <Controller
+                  name="franchise"
+                  control={form.control}
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={0.5}
+                      placeholder="Ex: 10"
+                    />
+                  )}
                 />
-              </div>
+                <FieldError errors={[form.formState.errors.franchise]} />
+              </Field>
             </div>
 
             {formError && (
@@ -759,6 +810,30 @@ export function GarantiesView({ userRole = 'Assure' }: GarantiesViewProps) {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmation de suppression */}
+      <AlertDialog
+        open={Boolean(deleteTargetId)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTargetId(undefined);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer la garantie ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action retirera définitivement la garantie de
+              l&apos;ontologie.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete}>
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

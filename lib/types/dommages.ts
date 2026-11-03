@@ -1,28 +1,41 @@
 export interface Dommage {
-  dommage: string;
-  typeDommage: string;
-  description: string | null;
-  niveauGravite: string | null;
-  valeurBien: string | null;
-  associeSinistre: string | null;
+  id: string;
+  type: string;
+  description: string;
+  montant: number;
+  gravite: string;
+  sinistre: string | null;
+  date: string | null;
+  lieu: string | null;
 }
 
 /** `getDommage` returns an empty object when the entity does not exist. */
 export type DommageDetail = Partial<Dommage>;
 
 export interface CreateDommagePayload {
-  id?: string;
-  type?: string;
-  description?: string;
-  niveauGravite?: string;
-  valeurBien?: number;
-  associeSinistre?: string;
+  type_dommage?: string;
+  description: string;
+  montant?: number;
+  gravite?: string;
+  sinistre_id?: string;
+  date?: string;
+  lieu?: string;
 }
 
 export interface UpdateDommagePayload {
-  typeDommage?: string;
+  type_dommage?: string;
   description?: string;
-  niveauGravite?: string;
-  valeurBien?: number;
-  associeSinistre?: string;
+  montant?: number;
+  gravite?: string;
+  sinistre_id?: string;
+  date?: string;
+  lieu?: string;
 }
+
+export const TYPES_DOMMAGE = [
+  'DommageMateriel',
+  'DommageCorporel',
+  'DommageImmateriel',
+] as const;
+
+export const NIVEAUX_GRAVITE = ['Faible', 'Moyen', 'Grave'] as const;

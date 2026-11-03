@@ -13,6 +13,8 @@ import { GarantiesView } from '@/components/insurance/garanties-view';
 import { SinistresView } from '@/components/insurance/sinistres-view';
 import { AuthModal } from '@/components/auth-modal';
 import { LandingPage } from '@/components/landing-page';
+import { DommagesView } from '@/components/insurance/dommages-view';
+import { ClausesView } from '@/components/insurance/clauses-view';
 import { listContrats } from '@/lib/services/contrats';
 import { listPersonnes } from '@/lib/services/personnes';
 import { me } from '@/lib/services/auth';
@@ -52,6 +54,7 @@ export default function Home() {
   });
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+
   const personnesQuery = useQuery({
     queryKey: ['personnes'],
     queryFn: listPersonnes,
@@ -90,6 +93,9 @@ export default function Home() {
             contrat.assure === 'Assure1'
         )
       : visibleContrats;
+
+  const [dommagesCount, setDommagesCount] = useState<number>(0);
+  const [clausesCount, setClausesCount] = useState<number>(0);
 
   // Auth Handlers
   const handleOpenAuth = (mode: 'login' | 'signup') => {
@@ -167,6 +173,8 @@ export default function Home() {
           onSelectTab={setCurrentTab}
           personnesCount={scopedPersonnes.length}
           contratsCount={scopedContrats.length}
+          dommagesCount={dommagesCount}
+          clausesCount={clausesCount}
           userRole={user?.role || 'Assure'}
         />
 
@@ -202,6 +210,20 @@ export default function Home() {
 
           {currentTab === 'sparql-explorer' && (
             <SparqlExplorerView userRole={user?.role || 'Assure'} />
+          )}
+
+          {currentTab === 'dommages' && (
+            <DommagesView
+              userRole={user?.role}
+              onCountChange={setDommagesCount}
+            />
+          )}
+
+          {currentTab === 'clauses' && (
+            <ClausesView
+              userRole={user?.role}
+              onCountChange={setClausesCount}
+            />
           )}
         </main>
       </div>

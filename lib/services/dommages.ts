@@ -1,13 +1,9 @@
 import {
-  booleanResponseSchema,
-  ontologyEntityCreatedResponseSchema,
-} from '@/lib/schemas/api';
-import {
   dommageDetailSchema,
+  dommageMutationResponseSchema,
   dommagesListSchema,
 } from '@/lib/schemas/dommages';
 import { createClient } from '@/lib/services/client';
-import type { OntologyEntityCreatedResponse } from '@/lib/types/api';
 import type {
   CreateDommagePayload,
   Dommage,
@@ -16,41 +12,40 @@ import type {
 } from '@/lib/types/dommages';
 
 export async function listDommages(): Promise<Dommage[]> {
-  const data = await createClient().get('api/ontology/dommages').json();
+  const data = await createClient().get('api/dommages').json();
   return dommagesListSchema.parse(data);
 }
 
 export async function getDommage(id: string): Promise<DommageDetail> {
   const data = await createClient()
-    .get(`api/ontology/dommages/${encodeURIComponent(id)}`)
+    .get(`api/dommages/${encodeURIComponent(id)}`)
     .json();
   return dommageDetailSchema.parse(data);
 }
 
 export async function createDommage(
   payload: CreateDommagePayload
-): Promise<OntologyEntityCreatedResponse> {
+): Promise<string | undefined> {
   const data = await createClient()
-    .post('api/ontology/dommages', { json: payload })
+    .post('api/dommages', { json: payload })
     .json();
-  return ontologyEntityCreatedResponseSchema.parse(data);
+  const parsed = dommageMutationResponseSchema.parse(data);
+  return parsed.id;
 }
 
 export async function updateDommage(
   id: string,
   payload: UpdateDommagePayload
-): Promise<boolean> {
+): Promise<void> {
   const data = await createClient()
-    .put(`api/ontology/dommages/${encodeURIComponent(id)}`, {
-      json: payload,
-    })
+    .put(`api/dommages/${encodeURIComponent(id)}`, { json: payload })
     .json();
-  return booleanResponseSchema.parse(data);
+  dommageMutationResponseSchema.parse(data);
 }
 
-export async function deleteDommage(id: string): Promise<boolean> {
+export async function deleteDommage(id: string): Promise<void> {
   const data = await createClient()
-    .delete(`api/ontology/dommages/${encodeURIComponent(id)}`)
+    .delete(`api/dommages/${encodeURIComponent(id)}`)
     .json();
-  return booleanResponseSchema.parse(data);
+  dommageMutationResponseSchema.parse(data);
 }

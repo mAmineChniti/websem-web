@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,6 +11,23 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from '@/components/ui/native-select';
+import { Field, FieldLabel, FieldError } from '@/components/ui/field';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   createPersonne,
   deletePersonne,
@@ -30,6 +47,7 @@ import type {
   PersonnesViewUser,
 } from '@/lib/types/personnes';
 import { cn } from '@/lib/utils';
+import { toast } from '@/components/ui/toast';
 import {
   editPersonneFormSchema,
   personneFormSchema,
@@ -93,6 +111,11 @@ export function PersonnesView({
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState<string | undefined>();
   const [editRole, setEditRole] = useState<string>('Assure');
+
+  // Delete confirmation state (Admin)
+  const [deleteTarget, setDeleteTarget] = useState<
+    { id: string; nom: string } | undefined
+  >();
 
   // Promotion request state (Assure -> Agent)
   const [promoModalOpen, setPromoModalOpen] = useState(false);
@@ -177,18 +200,23 @@ export function PersonnesView({
     }
   };
 
-  const handleDelete = async (personneId: string, nom: string) => {
-    if (
-      !confirm(
-        `Supprimer definitivement "${nom}" (${personneId}) de l'ontologie ?`
-      )
-    )
-      return;
+  const handleDelete = (personneId: string, nom: string) => {
+    setDeleteTarget({ id: personneId, nom });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
     try {
-      await deletePersonne(personneId);
+      await deletePersonne(deleteTarget.id);
       await queryClient.invalidateQueries({ queryKey: ['personnes'] });
     } catch {
-      alert('Erreur de connexion.');
+      toast.add({
+        title: 'Erreur',
+        description: 'Erreur de connexion.',
+        type: 'error',
+      });
+    } finally {
+      setDeleteTarget(undefined);
     }
   };
 
@@ -579,84 +607,78 @@ export function PersonnesView({
         )}
 
         {/* Promo Modal */}
-        {promoModalOpen && (
-          <div className="bg-foreground/60 fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-            <div className="border-border bg-card dark:border-border dark:bg-card relative w-full max-w-md overflow-hidden rounded-3xl border shadow-2xl">
-              <div className="from-primary to-card text-primary-foreground relative bg-gradient-to-r p-6">
-                <Button
-                  onClick={() => setPromoModalOpen(false)}
-                  className="bg-card/10 text-primary-foreground hover:bg-card/20 absolute top-4 right-4 rounded-full p-1.5 transition-colors"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-                <div className="mb-1 flex items-center gap-2">
-                  <Briefcase className="text-primary h-5 w-5" />
-                  <h2 className="font-serif text-lg font-bold">
-                    Demande de Promotion Agent
-                  </h2>
+        <Dialog open={promoModalOpen} onOpenChange={setPromoModalOpen}>
+          <DialogContent className="max-w-md overflow-hidden rounded-3xl p-0">
+            <DialogHeader className="from-primary to-card text-primary-foreground relative gap-1 bg-gradient-to-r p-6">
+              <DialogTitle className="flex items-center gap-2 font-serif text-lg font-bold">
+                <Briefcase className="text-primary h-5 w-5" />
+                Demande de Promotion Agent
+              </DialogTitle>
+              <p className="text-primary text-xs">
+                Votre demande sera examinee par un administrateur Hestia Assur
+              </p>
+            </DialogHeader>
+            <form
+              onSubmit={promotionForm.handleSubmit(handleSubmitPromo)}
+              className="space-y-4 p-6"
+            >
+              {promoError && (
+                <div className="border-border bg-muted text-destructive flex items-center gap-2 rounded-xl border p-3 text-xs">
+                  <ShieldAlert className="text-destructive h-4 w-4 shrink-0" />
+                  <span>{promoError}</span>
                 </div>
-                <p className="text-primary text-xs">
-                  Votre demande sera examinee par un administrateur Hestia Assur
+              )}
+              <div className="bg-muted dark:bg-card space-y-1 rounded-xl p-3 text-xs">
+                <p className="text-foreground dark:text-muted-foreground font-semibold">
+                  Demandeur
+                </p>
+                <p className="text-muted-foreground">
+                  {currentUser?.name} — #{currentUser?.ontology_id}
+                </p>
+                <p className="text-muted-foreground">
+                  Role actuel :{' '}
+                  <span className="text-primary font-bold">Assure</span> → Role
+                  demande :{' '}
+                  <span className="text-primary font-bold">Agent</span>
                 </p>
               </div>
-              <form
-                onSubmit={promotionForm.handleSubmit(handleSubmitPromo)}
-                className="space-y-4 p-6"
-              >
-                {promoError && (
-                  <div className="border-border bg-muted text-destructive flex items-center gap-2 rounded-xl border p-3 text-xs">
-                    <ShieldAlert className="text-destructive h-4 w-4 shrink-0" />
-                    <span>{promoError}</span>
-                  </div>
-                )}
-                <div className="bg-muted dark:bg-card space-y-1 rounded-xl p-3 text-xs">
-                  <p className="text-foreground dark:text-muted-foreground font-semibold">
-                    Demandeur
-                  </p>
-                  <p className="text-muted-foreground">
-                    {currentUser?.name} — #{currentUser?.ontology_id}
-                  </p>
-                  <p className="text-muted-foreground">
-                    Role actuel :{' '}
-                    <span className="text-primary font-bold">Assure</span> →
-                    Role demande :{' '}
-                    <span className="text-primary font-bold">Agent</span>
-                  </p>
-                </div>
-                <div>
-                  <label className="text-foreground dark:text-muted-foreground mb-1 block text-xs font-semibold">
-                    Message de motivation (optionnel)
-                  </label>
-                  <Textarea
-                    {...promotionForm.register('message')}
-                    rows={3}
-                    placeholder="Expliquez pourquoi vous souhaitez devenir agent d'assurance..."
-                    className="border-input bg-card text-foreground dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full resize-none rounded-xl border px-3 py-2 text-xs focus:outline-none"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    onClick={() => setPromoModalOpen(false)}
-                    className="border-input text-foreground hover:bg-muted dark:border-border dark:text-muted-foreground flex-1 rounded-xl border py-2.5 text-xs font-semibold transition-colors"
-                  >
-                    Annuler
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={promoLoading}
-                    className="text-primary-foreground bg-muted hover:bg-accent flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition-colors disabled:opacity-50"
-                  >
-                    <Save className="h-3.5 w-3.5" />
-                    <span>
-                      {promoLoading ? 'Envoi...' : 'Soumettre la demande'}
-                    </span>
-                  </Button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+              <div>
+                <FieldLabel
+                  htmlFor="promo-message"
+                  className="text-foreground dark:text-muted-foreground mb-1 block text-xs font-semibold"
+                >
+                  Message de motivation (optionnel)
+                </FieldLabel>
+                <Textarea
+                  id="promo-message"
+                  {...promotionForm.register('message')}
+                  rows={3}
+                  placeholder="Expliquez pourquoi vous souhaitez devenir agent d'assurance..."
+                  className="border-input bg-card text-foreground dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full resize-none rounded-xl border px-3 py-2 text-xs focus:outline-none"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  onClick={() => setPromoModalOpen(false)}
+                  className="border-input text-foreground hover:bg-muted dark:border-border dark:text-muted-foreground flex-1 rounded-xl border py-2.5 text-xs font-semibold transition-colors"
+                >
+                  Annuler
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={promoLoading}
+                  className="text-primary-foreground bg-muted hover:bg-accent flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition-colors disabled:opacity-50"
+                >
+                  <Save className="h-3.5 w-3.5" />
+                  <span>
+                    {promoLoading ? 'Envoi...' : 'Soumettre la demande'}
+                  </span>
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
@@ -922,168 +944,213 @@ export function PersonnesView({
       </div>
 
       {/* ── Edit Modal ──────────────────────────────────────────────── */}
-      {editTarget && (
-        <div className="bg-foreground/60 fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="border-border bg-card dark:border-border dark:bg-card relative w-full max-w-md overflow-hidden rounded-3xl border shadow-2xl">
-            {/* Header */}
-            <div className="from-primary text-primary-foreground to-card relative bg-gradient-to-r p-6">
-              <Button
-                onClick={() => setEditTarget(undefined)}
-                className="bg-card/10 text-primary-foreground hover:bg-card/20 absolute top-4 right-4 rounded-full p-1.5 transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-              <div className="mb-1 flex items-center gap-2">
-                <Pencil className="text-primary h-5 w-5" />
-                <h2 className="font-serif text-lg font-bold">
-                  Modifier la Personne
-                </h2>
+      <Dialog
+        open={Boolean(editTarget)}
+        onOpenChange={(open) => {
+          if (!open) setEditTarget(undefined);
+        }}
+      >
+        <DialogContent className="max-w-md overflow-hidden rounded-3xl p-0">
+          {/* Header */}
+          <DialogHeader className="from-primary text-primary-foreground to-card relative gap-1 bg-gradient-to-r p-6">
+            <DialogTitle className="flex items-center gap-2 font-serif text-lg font-bold">
+              <Pencil className="text-primary h-5 w-5" />
+              Modifier la Personne
+            </DialogTitle>
+            <p className="text-primary text-xs">
+              #{editTarget?.personne} — {editTarget?.type}
+            </p>
+          </DialogHeader>
+
+          <form
+            onSubmit={editPersonneForm.handleSubmit(handleEditSave)}
+            className="space-y-3.5 p-6"
+          >
+            {editError && (
+              <div className="border-border bg-muted text-destructive flex items-center gap-2 rounded-xl border p-3 text-xs">
+                <ShieldAlert className="text-destructive h-4 w-4 shrink-0" />
+                <span>{editError}</span>
               </div>
-              <p className="text-primary text-xs">
-                #{editTarget.personne} — {editTarget.type}
-              </p>
+            )}
+            {/* Encart informatif */}
+            <div className="border-border bg-muted text-primary dark:border-border dark:bg-muted dark:text-primary flex items-center justify-between rounded-xl border p-3 text-xs">
+              <span>
+                Tous les champs avec (
+                <span className="text-destructive font-bold">*</span>) sont{' '}
+                <strong>obligatoires</strong>.
+              </span>
+              <span className="bg-muted text-primary dark:bg-muted dark:text-primary rounded-full px-2 py-0.5 text-[10px] font-bold">
+                Édition OWL
+              </span>
             </div>
 
-            <form
-              onSubmit={editPersonneForm.handleSubmit(handleEditSave)}
-              className="space-y-3.5 p-6"
-            >
-              {editError && (
-                <div className="border-border bg-muted text-destructive flex items-center gap-2 rounded-xl border p-3 text-xs">
-                  <ShieldAlert className="text-destructive h-4 w-4 shrink-0" />
-                  <span>{editError}</span>
-                </div>
-              )}
-              {/* Encart informatif */}
-              <div className="border-border bg-muted text-primary dark:border-border dark:bg-muted dark:text-primary flex items-center justify-between rounded-xl border p-3 text-xs">
-                <span>
-                  Tous les champs avec (
-                  <span className="text-destructive font-bold">*</span>) sont{' '}
-                  <strong>obligatoires</strong>.
-                </span>
-                <span className="bg-muted text-primary dark:bg-muted dark:text-primary rounded-full px-2 py-0.5 text-[10px] font-bold">
-                  Édition OWL
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold">
-                    <span>Prénom</span>
-                    <span className="text-destructive font-bold">*</span>
-                  </label>
-                  <Input
-                    type="text"
-                    required
-                    {...editPersonneForm.register('prenom')}
-                    className="border-input bg-card dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border px-3 py-2 text-xs focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold">
-                    <span>Nom</span>
-                    <span className="text-destructive font-bold">*</span>
-                  </label>
-                  <Input
-                    type="text"
-                    required
-                    {...editPersonneForm.register('nom')}
-                    className="border-input bg-card dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border px-3 py-2 text-xs focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold">
-                    <span>Numéro de CIN</span>
-                    <span className="text-destructive font-bold">*</span>
-                  </label>
-                  <Input
-                    type="text"
-                    required
-                    {...editPersonneForm.register('cin')}
-                    className="border-input bg-card dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border px-3 py-2 font-mono text-xs focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold">
-                    <span>Téléphone</span>
-                    <span className="text-destructive font-bold">*</span>
-                  </label>
-                  <Input
-                    type="text"
-                    required
-                    {...editPersonneForm.register('telephone')}
-                    className="border-input bg-card dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border px-3 py-2 font-mono text-xs focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold">
-                  <span>Adresse du domicile</span>
+            <div className="grid grid-cols-2 gap-3">
+              <Field>
+                <FieldLabel
+                  htmlFor="personne-edit-prenom"
+                  className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold"
+                >
+                  <span>Prénom</span>
                   <span className="text-destructive font-bold">*</span>
-                </label>
-                <Input
-                  type="text"
-                  required
-                  {...editPersonneForm.register('adresse')}
-                  className="border-input bg-card dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border px-3 py-2 text-xs focus:outline-none"
-                />
-              </div>
-
-              {/* Role change - Admin only */}
-              {isAdmin && (
-                <div>
-                  <label className="text-foreground dark:text-muted-foreground mb-1 block text-xs font-semibold">
-                    Rôle ontologique
-                  </label>
-                  <NativeSelect
-                    value={editRole}
-                    onChange={(e) => setEditRole(e.target.value)}
-                  >
-                    <NativeSelectOption value="Assure">
-                      Assuré
-                    </NativeSelectOption>
-                    <NativeSelectOption value="Agent">Agent</NativeSelectOption>
-                    <NativeSelectOption value="Expert">
-                      Expert
-                    </NativeSelectOption>
-                    <NativeSelectOption value="Beneficiaire">
-                      Bénéficiaire
-                    </NativeSelectOption>
-                  </NativeSelect>
-                  {editRole !== editTarget?.type && (
-                    <p className="text-primary mt-1 text-[10px] font-medium">
-                      Le rôle sera changé de {editTarget?.type} vers {editRole}
-                    </p>
+                </FieldLabel>
+                <Controller
+                  name="prenom"
+                  control={editPersonneForm.control}
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      id="personne-edit-prenom"
+                      type="text"
+                      className="border-input bg-card dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border px-3 py-2 text-xs focus:outline-none"
+                    />
                   )}
-                </div>
-              )}
-              <div className="flex gap-2 pt-1">
-                <Button
-                  type="button"
-                  onClick={() => setEditTarget(undefined)}
-                  className="border-input text-foreground hover:bg-muted dark:border-border dark:text-muted-foreground flex-1 rounded-xl border py-2.5 text-xs font-semibold transition-colors"
+                />
+                <FieldError
+                  errors={[editPersonneForm.formState.errors.prenom]}
+                />
+              </Field>
+              <Field>
+                <FieldLabel
+                  htmlFor="personne-edit-nom"
+                  className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold"
                 >
-                  Annuler
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={editLoading}
-                  className="text-primary-foreground bg-muted hover:bg-accent flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition-colors disabled:opacity-50"
+                  <span>Nom</span>
+                  <span className="text-destructive font-bold">*</span>
+                </FieldLabel>
+                <Controller
+                  name="nom"
+                  control={editPersonneForm.control}
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      id="personne-edit-nom"
+                      type="text"
+                      className="border-input bg-card dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border px-3 py-2 text-xs focus:outline-none"
+                    />
+                  )}
+                />
+                <FieldError errors={[editPersonneForm.formState.errors.nom]} />
+              </Field>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Field>
+                <FieldLabel
+                  htmlFor="personne-edit-cin"
+                  className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold"
                 >
-                  <Save className="h-3.5 w-3.5" />
-                  <span>
-                    {editLoading ? 'Enregistrement...' : 'Enregistrer'}
-                  </span>
-                </Button>
+                  <span>Numéro de CIN</span>
+                  <span className="text-destructive font-bold">*</span>
+                </FieldLabel>
+                <Controller
+                  name="cin"
+                  control={editPersonneForm.control}
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      id="personne-edit-cin"
+                      type="text"
+                      className="border-input bg-card dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border px-3 py-2 font-mono text-xs focus:outline-none"
+                    />
+                  )}
+                />
+                <FieldError errors={[editPersonneForm.formState.errors.cin]} />
+              </Field>
+              <Field>
+                <FieldLabel
+                  htmlFor="personne-edit-telephone"
+                  className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold"
+                >
+                  <span>Téléphone</span>
+                  <span className="text-destructive font-bold">*</span>
+                </FieldLabel>
+                <Controller
+                  name="telephone"
+                  control={editPersonneForm.control}
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      id="personne-edit-telephone"
+                      type="text"
+                      className="border-input bg-card dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border px-3 py-2 font-mono text-xs focus:outline-none"
+                    />
+                  )}
+                />
+                <FieldError
+                  errors={[editPersonneForm.formState.errors.telephone]}
+                />
+              </Field>
+            </div>
+
+            <Field>
+              <FieldLabel
+                htmlFor="personne-edit-adresse"
+                className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold"
+              >
+                <span>Adresse du domicile</span>
+                <span className="text-destructive font-bold">*</span>
+              </FieldLabel>
+              <Controller
+                name="adresse"
+                control={editPersonneForm.control}
+                render={({ field }) => (
+                  <Input
+                    {...field}
+                    id="personne-edit-adresse"
+                    type="text"
+                    className="border-input bg-card dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border px-3 py-2 text-xs focus:outline-none"
+                  />
+                )}
+              />
+              <FieldError
+                errors={[editPersonneForm.formState.errors.adresse]}
+              />
+            </Field>
+
+            {/* Role change - Admin only */}
+            {isAdmin && (
+              <div>
+                <FieldLabel className="text-foreground dark:text-muted-foreground mb-1 block text-xs font-semibold">
+                  Rôle ontologique
+                </FieldLabel>
+                <NativeSelect
+                  value={editRole}
+                  onChange={(e) => setEditRole(e.target.value)}
+                >
+                  <NativeSelectOption value="Assure">Assuré</NativeSelectOption>
+                  <NativeSelectOption value="Agent">Agent</NativeSelectOption>
+                  <NativeSelectOption value="Expert">Expert</NativeSelectOption>
+                  <NativeSelectOption value="Beneficiaire">
+                    Bénéficiaire
+                  </NativeSelectOption>
+                </NativeSelect>
+                {editRole !== editTarget?.type && (
+                  <p className="text-primary mt-1 text-[10px] font-medium">
+                    Le rôle sera changé de {editTarget?.type} vers {editRole}
+                  </p>
+                )}
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+            )}
+            <div className="flex gap-2 pt-1">
+              <Button
+                type="button"
+                onClick={() => setEditTarget(undefined)}
+                className="border-input text-foreground hover:bg-muted dark:border-border dark:text-muted-foreground flex-1 rounded-xl border py-2.5 text-xs font-semibold transition-colors"
+              >
+                Annuler
+              </Button>
+              <Button
+                type="submit"
+                disabled={editLoading}
+                className="text-primary-foreground bg-muted hover:bg-accent flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition-colors disabled:opacity-50"
+              >
+                <Save className="h-3.5 w-3.5" />
+                <span>{editLoading ? 'Enregistrement...' : 'Enregistrer'}</span>
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Admin Promotions Panel ───────────────────────────────────── */}
       {isAdmin && (
@@ -1182,188 +1249,231 @@ export function PersonnesView({
       )}
 
       {/* Modal - Ajouter une Personne (Uniquement pour Agent & Admin) */}
-      {isModalOpen && canAddPersonne && (
-        <div className="animate-in fade-in bg-foreground/60 fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm duration-200">
-          <div className="border-border bg-card dark:border-border dark:bg-card relative w-full max-w-md overflow-hidden rounded-3xl border shadow-2xl">
-            <div className="from-primary to-card text-primary-foreground relative bg-gradient-to-r p-6">
-              <Button
-                onClick={() => setIsModalOpen(false)}
-                className="bg-card/10 text-primary-foreground hover:bg-card/20 absolute top-4 right-4 rounded-full p-1.5 transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-              <h2 className="font-serif text-lg font-bold">
-                Ajouter une Personne
-              </h2>
-              <p className="text-primary text-xs">
-                {userRole === 'Agent'
-                  ? "Inscription d'un souscripteur (Assuré ou Bénéficiaire)"
-                  : "Création d'un individu conforme au modèle ontologique Personne"}
-              </p>
+      <Dialog
+        open={isModalOpen && canAddPersonne}
+        onOpenChange={(open) => {
+          if (!open) setIsModalOpen(false);
+        }}
+      >
+        <DialogContent className="max-w-md overflow-hidden rounded-3xl p-0">
+          <DialogHeader className="from-primary to-card text-primary-foreground relative gap-1 bg-gradient-to-r p-6">
+            <DialogTitle className="font-serif text-lg font-bold">
+              Ajouter une Personne
+            </DialogTitle>
+            <p className="text-primary text-xs">
+              {userRole === 'Agent'
+                ? "Inscription d'un souscripteur (Assuré ou Bénéficiaire)"
+                : "Création d'un individu conforme au modèle ontologique Personne"}
+            </p>
+          </DialogHeader>
+
+          <form
+            onSubmit={personneForm.handleSubmit(handleCreatePersonne)}
+            className="space-y-3.5 p-6"
+          >
+            {formError && (
+              <div className="border-border bg-muted text-destructive flex items-center gap-2 rounded-xl border p-3 text-xs">
+                <ShieldAlert className="text-destructive h-4 w-4 shrink-0" />
+                <span>{formError}</span>
+              </div>
+            )}
+            {/* Encart informatif sur les champs obligatoires */}
+            <div className="border-border bg-muted text-primary dark:border-border dark:bg-muted dark:text-primary flex items-center justify-between rounded-xl border p-3 text-xs">
+              <span>
+                Tous les champs avec (
+                <span className="text-destructive font-bold">*</span>) sont{' '}
+                <strong>obligatoires</strong>.
+              </span>
+              <span className="bg-muted text-primary dark:bg-muted dark:text-primary rounded-full px-2 py-0.5 text-[10px] font-bold">
+                Validation stricte
+              </span>
             </div>
 
-            <form
-              onSubmit={personneForm.handleSubmit(handleCreatePersonne)}
-              className="space-y-3.5 p-6"
-            >
-              {formError && (
-                <div className="border-border bg-muted text-destructive flex items-center gap-2 rounded-xl border p-3 text-xs">
-                  <ShieldAlert className="text-destructive h-4 w-4 shrink-0" />
-                  <span>{formError}</span>
-                </div>
-              )}
-              {/* Encart informatif sur les champs obligatoires */}
-              <div className="border-border bg-muted text-primary dark:border-border dark:bg-muted dark:text-primary flex items-center justify-between rounded-xl border p-3 text-xs">
-                <span>
-                  Tous les champs avec (
-                  <span className="text-destructive font-bold">*</span>) sont{' '}
-                  <strong>obligatoires</strong>.
+            <div>
+              <FieldLabel
+                htmlFor="personne-add-role"
+                className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1.5 text-xs font-bold"
+              >
+                <span>Rôle ontologique à attribuer</span>
+                <span className="text-destructive font-bold">*</span>
+                <span className="bg-muted text-destructive dark:bg-muted ml-auto rounded px-1.5 py-0.5 text-[9px] font-semibold">
+                  Obligatoire
                 </span>
-                <span className="bg-muted text-primary dark:bg-muted dark:text-primary rounded-full px-2 py-0.5 text-[10px] font-bold">
-                  Validation stricte
-                </span>
-              </div>
-
-              <div>
-                <label className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1.5 text-xs font-bold">
-                  <span>Rôle ontologique à attribuer</span>
-                  <span className="text-destructive font-bold">*</span>
-                  <span className="bg-muted text-destructive dark:bg-muted ml-auto rounded px-1.5 py-0.5 text-[9px] font-semibold">
-                    Obligatoire
-                  </span>
-                </label>
-                <NativeSelect {...personneForm.register('role')}>
-                  <NativeSelectOption value="Assure">
-                    Assuré (Souscripteur client)
+              </FieldLabel>
+              <NativeSelect
+                id="personne-add-role"
+                {...personneForm.register('role')}
+              >
+                <NativeSelectOption value="Assure">
+                  Assuré (Souscripteur client)
+                </NativeSelectOption>
+                <NativeSelectOption value="Beneficiaire">
+                  Bénéficiaire (Ayant-droit)
+                </NativeSelectOption>
+                {isAdmin && (
+                  <NativeSelectOption value="Agent">
+                    Agent d&apos;assurance
                   </NativeSelectOption>
-                  <NativeSelectOption value="Beneficiaire">
-                    Bénéficiaire (Ayant-droit)
-                  </NativeSelectOption>
-                  {isAdmin && (
-                    <NativeSelectOption value="Agent">
-                      Agent d&apos;assurance
-                    </NativeSelectOption>
-                  )}
-                  {isAdmin && (
-                    <NativeSelectOption value="Expert">
-                      Expert technique
-                    </NativeSelectOption>
-                  )}
-                </NativeSelect>
-                {userRole === 'Agent' && (
-                  <p className="text-muted-foreground mt-1 text-[10px]">
-                    * En tant qu&apos;Agent, vous ne pouvez inscrire que des
-                    Assurés et Bénéficiaires.
-                  </p>
                 )}
-              </div>
+                {isAdmin && (
+                  <NativeSelectOption value="Expert">
+                    Expert technique
+                  </NativeSelectOption>
+                )}
+              </NativeSelect>
+              {userRole === 'Agent' && (
+                <p className="text-muted-foreground mt-1 text-[10px]">
+                  * En tant qu&apos;Agent, vous ne pouvez inscrire que des
+                  Assurés et Bénéficiaires.
+                </p>
+              )}
+            </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold">
-                    <span>Prénom</span>
-                    <span className="text-destructive font-bold">*</span>
-                    <span className="bg-muted text-destructive dark:bg-muted ml-auto rounded px-1.5 py-0.5 text-[9px] font-semibold">
-                      Obligatoire
-                    </span>
-                  </label>
-                  <Input
-                    type="text"
-                    required
-                    {...personneForm.register('prenom')}
-                    placeholder="Ex: Sami"
-                    className="border-input dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border p-2 text-xs focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold">
-                    <span>Nom</span>
-                    <span className="text-destructive font-bold">*</span>
-                    <span className="bg-muted text-destructive dark:bg-muted ml-auto rounded px-1.5 py-0.5 text-[9px] font-semibold">
-                      Obligatoire
-                    </span>
-                  </label>
-                  <Input
-                    type="text"
-                    required
-                    {...personneForm.register('nom')}
-                    placeholder="Ex: Trabelsi"
-                    className="border-input dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border p-2 text-xs focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold">
-                    <span>Numéro de CIN</span>
-                    <span className="text-destructive font-bold">*</span>
-                    <span className="bg-muted text-destructive dark:bg-muted ml-auto rounded px-1.5 py-0.5 text-[9px] font-semibold">
-                      Obligatoire
-                    </span>
-                  </label>
-                  <Input
-                    type="text"
-                    required
-                    {...personneForm.register('cin')}
-                    placeholder="Ex: 08123456"
-                    className="border-input dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border p-2 font-mono text-xs focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold">
-                    <span>Téléphone</span>
-                    <span className="text-destructive font-bold">*</span>
-                    <span className="bg-muted text-destructive dark:bg-muted ml-auto rounded px-1.5 py-0.5 text-[9px] font-semibold">
-                      Obligatoire
-                    </span>
-                  </label>
-                  <Input
-                    type="text"
-                    required
-                    {...personneForm.register('telephone')}
-                    placeholder="Ex: 20123456"
-                    className="border-input dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border p-2 font-mono text-xs focus:outline-none"
-                  />
-                </div>
-              </div>
-
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold">
-                  <span>Adresse du domicile</span>
+                <FieldLabel
+                  htmlFor="personne-add-prenom"
+                  className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold"
+                >
+                  <span>Prénom</span>
                   <span className="text-destructive font-bold">*</span>
                   <span className="bg-muted text-destructive dark:bg-muted ml-auto rounded px-1.5 py-0.5 text-[9px] font-semibold">
                     Obligatoire
                   </span>
-                </label>
+                </FieldLabel>
                 <Input
+                  id="personne-add-prenom"
                   type="text"
-                  required
-                  {...personneForm.register('adresse')}
-                  placeholder="Ex: Tunis, Ariana"
+                  {...personneForm.register('prenom')}
+                  placeholder="Ex: Sami"
                   className="border-input dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border p-2 text-xs focus:outline-none"
                 />
               </div>
-              <div className="flex justify-end gap-2 pt-3">
-                <Button
-                  variant="outline"
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="rounded-xl px-4 py-2 text-xs font-semibold"
+              <div>
+                <FieldLabel
+                  htmlFor="personne-add-nom"
+                  className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold"
                 >
-                  Annuler
-                </Button>
-                <Button
-                  type="submit"
-                  className="rounded-xl px-5 py-2 text-xs font-bold shadow"
-                >
-                  Créer dans l&apos;ontologie
-                </Button>
+                  <span>Nom</span>
+                  <span className="text-destructive font-bold">*</span>
+                  <span className="bg-muted text-destructive dark:bg-muted ml-auto rounded px-1.5 py-0.5 text-[9px] font-semibold">
+                    Obligatoire
+                  </span>
+                </FieldLabel>
+                <Input
+                  id="personne-add-nom"
+                  type="text"
+                  {...personneForm.register('nom')}
+                  placeholder="Ex: Trabelsi"
+                  className="border-input dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border p-2 text-xs focus:outline-none"
+                />
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <FieldLabel
+                  htmlFor="personne-add-cin"
+                  className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold"
+                >
+                  <span>Numéro de CIN</span>
+                  <span className="text-destructive font-bold">*</span>
+                  <span className="bg-muted text-destructive dark:bg-muted ml-auto rounded px-1.5 py-0.5 text-[9px] font-semibold">
+                    Obligatoire
+                  </span>
+                </FieldLabel>
+                <Input
+                  id="personne-add-cin"
+                  type="text"
+                  {...personneForm.register('cin')}
+                  placeholder="Ex: 08123456"
+                  className="border-input dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border p-2 font-mono text-xs focus:outline-none"
+                />
+              </div>
+              <div>
+                <FieldLabel
+                  htmlFor="personne-add-telephone"
+                  className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold"
+                >
+                  <span>Téléphone</span>
+                  <span className="text-destructive font-bold">*</span>
+                  <span className="bg-muted text-destructive dark:bg-muted ml-auto rounded px-1.5 py-0.5 text-[9px] font-semibold">
+                    Obligatoire
+                  </span>
+                </FieldLabel>
+                <Input
+                  id="personne-add-telephone"
+                  type="text"
+                  {...personneForm.register('telephone')}
+                  placeholder="Ex: 20123456"
+                  className="border-input dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border p-2 font-mono text-xs focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div>
+              <FieldLabel
+                htmlFor="personne-add-adresse"
+                className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold"
+              >
+                <span>Adresse du domicile</span>
+                <span className="text-destructive font-bold">*</span>
+                <span className="bg-muted text-destructive dark:bg-muted ml-auto rounded px-1.5 py-0.5 text-[9px] font-semibold">
+                  Obligatoire
+                </span>
+              </FieldLabel>
+              <Input
+                id="personne-add-adresse"
+                type="text"
+                {...personneForm.register('adresse')}
+                placeholder="Ex: Tunis, Ariana"
+                className="border-input dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border p-2 text-xs focus:outline-none"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-3">
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="rounded-xl px-4 py-2 text-xs font-semibold"
+              >
+                Annuler
+              </Button>
+              <Button
+                type="submit"
+                className="rounded-xl px-5 py-2 text-xs font-bold shadow"
+              >
+                Créer dans l&apos;ontologie
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmation de suppression (Admin) */}
+      <AlertDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(undefined);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer la personne ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Supprimer définitivement « {deleteTarget?.nom} » (
+              {deleteTarget?.id}) de l&apos;ontologie ? Cette action est
+              irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete}>
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

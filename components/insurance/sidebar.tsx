@@ -11,6 +11,8 @@ import {
   Terminal,
   Code2,
   ShieldCheck,
+  AlertTriangle,
+  Scale,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -19,6 +21,8 @@ interface SidebarProps {
   openContratModal?: () => void;
   personnesCount: number;
   contratsCount: number;
+  dommagesCount?: number;
+  clausesCount?: number;
   userRole?: string;
 }
 
@@ -27,6 +31,8 @@ export function Sidebar({
   onSelectTab,
   personnesCount,
   contratsCount,
+  dommagesCount,
+  clausesCount,
   userRole = 'Assure',
 }: SidebarProps) {
   const isAssure = userRole === 'Assure';
@@ -66,6 +72,24 @@ export function Sidebar({
       badgeColor: 'bg-muted text-primary dark:bg-muted dark:text-primary',
       description: 'Propriétaire, Locataire, Copropriété',
     },
+    {
+      id: 'dommages',
+      label: 'Dommages',
+      icon: AlertTriangle,
+      badge: dommagesCount ? `${dommagesCount}` : undefined,
+      badgeColor:
+        'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary',
+      description: 'Matériels, Corporels & Immatériels',
+    },
+    {
+      id: 'clauses',
+      label: 'Clauses',
+      icon: Scale,
+      badge: clausesCount ? `${clausesCount}` : undefined,
+      badgeColor:
+        'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary',
+      description: 'Exclusions, Franchises & Obligations',
+    },
     ...(userRole === 'Assure'
       ? []
       : [
@@ -74,7 +98,8 @@ export function Sidebar({
             label: 'Recherche & Intelligence NLP',
             icon: Terminal,
             badge: 'IA',
-            badgeColor: 'bg-muted text-primary dark:bg-muted dark:text-primary',
+            badgeColor:
+              'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary',
             description: 'Interrogation sémantique en français',
           },
         ]),
@@ -85,7 +110,8 @@ export function Sidebar({
             label: 'Explorateur SPARQL',
             icon: Code2,
             badge: '12',
-            badgeColor: 'bg-muted text-primary dark:bg-muted dark:text-primary',
+            badgeColor:
+              'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary',
             description: 'Console SPARQL interactive (démo technique)',
           },
         ]

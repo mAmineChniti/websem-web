@@ -5,6 +5,8 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { listContrats } from '@/lib/services/contrats';
 import { listPersonnes } from '@/lib/services/personnes';
+import { listDommages } from '@/lib/services/dommages';
+import { listClauses } from '@/lib/services/clauses';
 import { getStats } from '@/lib/services/stats';
 import type { Personne } from '@/lib/types/personnes';
 import {
@@ -15,6 +17,8 @@ import {
   Sparkles,
   ChevronRight,
   Database,
+  AlertTriangle,
+  Scale,
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -35,6 +39,16 @@ export function DashboardView({ onSelectTab, userRole }: DashboardViewProps) {
   const stats = statsQuery.data;
   const personnes = personnesQuery.data ?? [];
   const contrats = contratsQuery.data ?? [];
+  const dommagesQuery = useQuery({
+    queryKey: ['dommages'],
+    queryFn: listDommages,
+  });
+  const clausesQuery = useQuery({
+    queryKey: ['clauses'],
+    queryFn: listClauses,
+  });
+  const dommagesCount = dommagesQuery.data?.length ?? 0;
+  const clausesCount = clausesQuery.data?.length ?? 0;
 
   const totalPrimes = contrats.reduce(
     (acc, c) => acc + (Number.parseFloat(c.montantPrime ?? '') || 0),
@@ -77,6 +91,20 @@ export function DashboardView({ onSelectTab, userRole }: DashboardViewProps) {
                   ? 'Mon Profil Assuré'
                   : 'Voir les Personnes'}
               </span>
+            </Button>
+            <Button
+              onClick={() => onSelectTab('dommages')}
+              className="border-primary/30 bg-primary/20 text-primary-foreground hover:bg-primary/30 inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold backdrop-blur transition-colors"
+            >
+              <AlertTriangle className="text-primary h-4 w-4" />
+              <span>Dommages ({dommagesCount})</span>
+            </Button>
+            <Button
+              onClick={() => onSelectTab('clauses')}
+              className="border-primary/30 bg-primary/20 text-primary-foreground hover:bg-primary/30 inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold backdrop-blur transition-colors"
+            >
+              <Scale className="text-primary h-4 w-4" />
+              <span>Clauses ({clausesCount})</span>
             </Button>
           </div>
         </div>

@@ -1,11 +1,11 @@
 'use client';
-import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Field, FieldLabel, FieldError } from '@/components/ui/field';
 
 import React, { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { login, register as registerUser } from '@/lib/services/auth';
 import { loginPayloadSchema, registerPayloadSchema } from '@/lib/schemas/auth';
@@ -197,109 +197,191 @@ export function AuthModal({
           {mode === 'signup' && (
             <>
               <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-foreground mb-1 block text-xs font-semibold">
+                <Field>
+                  <FieldLabel className="text-foreground mb-1 block text-xs font-semibold">
                     Prénom
-                  </Label>
-                  <Input
-                    type="text"
-                    required
-                    {...registerForm.register('prenom')}
-                    placeholder="Karim"
-                    className="border-border text-foreground focus:border-primary bg-card w-full rounded-xl border px-3 py-2 text-xs focus:outline-none"
+                  </FieldLabel>
+                  <Controller
+                    name="prenom"
+                    control={registerForm.control}
+                    render={({ field }) => (
+                      <Input
+                        {...field}
+                        type="text"
+                        placeholder="Karim"
+                        className="border-border text-foreground focus:border-primary bg-card w-full rounded-xl border px-3 py-2 text-xs focus:outline-none"
+                      />
+                    )}
                   />
-                </div>
-                <div>
-                  <Label className="text-foreground mb-1 block text-xs font-semibold">
+                  <FieldError errors={[registerForm.formState.errors.prenom]} />
+                </Field>
+                <Field>
+                  <FieldLabel className="text-foreground mb-1 block text-xs font-semibold">
                     Nom
-                  </Label>
-                  <Input
-                    type="text"
-                    required
-                    {...registerForm.register('nom')}
-                    placeholder="BenAli"
-                    className="border-border text-foreground focus:border-primary bg-card w-full rounded-xl border px-3 py-2 text-xs focus:outline-none"
+                  </FieldLabel>
+                  <Controller
+                    name="nom"
+                    control={registerForm.control}
+                    render={({ field }) => (
+                      <Input
+                        {...field}
+                        type="text"
+                        placeholder="BenAli"
+                        className="border-border text-foreground focus:border-primary bg-card w-full rounded-xl border px-3 py-2 text-xs focus:outline-none"
+                      />
+                    )}
                   />
-                </div>
+                  <FieldError errors={[registerForm.formState.errors.nom]} />
+                </Field>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-foreground mb-1 block text-xs font-semibold">
+                <Field>
+                  <FieldLabel className="text-foreground mb-1 block text-xs font-semibold">
                     CIN
-                  </Label>
-                  <Input
-                    type="text"
-                    required
-                    {...registerForm.register('cin')}
-                    placeholder="08123456"
-                    className="border-border text-foreground focus:border-primary bg-card w-full rounded-xl border px-3 py-2 text-xs focus:outline-none"
+                  </FieldLabel>
+                  <Controller
+                    name="cin"
+                    control={registerForm.control}
+                    render={({ field }) => (
+                      <Input
+                        {...field}
+                        type="text"
+                        placeholder="08123456"
+                        className="border-border text-foreground focus:border-primary bg-card w-full rounded-xl border px-3 py-2 text-xs focus:outline-none"
+                      />
+                    )}
                   />
-                </div>
-                <div>
-                  <Label className="text-foreground mb-1 block text-xs font-semibold">
+                  <FieldError errors={[registerForm.formState.errors.cin]} />
+                </Field>
+                <Field>
+                  <FieldLabel className="text-foreground mb-1 block text-xs font-semibold">
                     Téléphone
-                  </Label>
-                  <Input
-                    type="text"
-                    required
-                    {...registerForm.register('telephone')}
-                    placeholder="20123456"
-                    className="border-border text-foreground focus:border-primary bg-card w-full rounded-xl border px-3 py-2 text-xs focus:outline-none"
+                  </FieldLabel>
+                  <Controller
+                    name="telephone"
+                    control={registerForm.control}
+                    render={({ field }) => (
+                      <Input
+                        {...field}
+                        type="text"
+                        placeholder="20123456"
+                        className="border-border text-foreground focus:border-primary bg-card w-full rounded-xl border px-3 py-2 text-xs focus:outline-none"
+                      />
+                    )}
                   />
-                </div>
+                  <FieldError
+                    errors={[registerForm.formState.errors.telephone]}
+                  />
+                </Field>
               </div>
 
-              <div>
-                <Label className="text-foreground mb-1 block text-xs font-semibold">
+              <Field>
+                <FieldLabel className="text-foreground mb-1 block text-xs font-semibold">
                   Adresse
-                </Label>
-                <Input
-                  type="text"
-                  required
-                  {...registerForm.register('adresse')}
-                  placeholder="Tunis, Ariana"
-                  className="border-border text-foreground focus:border-primary bg-card w-full rounded-xl border px-3 py-2 text-xs focus:outline-none"
+                </FieldLabel>
+                <Controller
+                  name="adresse"
+                  control={registerForm.control}
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      type="text"
+                      placeholder="Tunis, Ariana"
+                      className="border-border text-foreground focus:border-primary bg-card w-full rounded-xl border px-3 py-2 text-xs focus:outline-none"
+                    />
+                  )}
                 />
-              </div>
+                <FieldError errors={[registerForm.formState.errors.adresse]} />
+              </Field>
             </>
           )}
 
-          <div>
-            <Label className="text-foreground mb-1 block text-xs font-semibold">
+          <Field>
+            <FieldLabel className="text-foreground mb-1 block text-xs font-semibold">
               Adresse e-mail
-            </Label>
+            </FieldLabel>
             <div className="relative">
               <Mail className="text-muted-foreground absolute top-2.5 left-3 h-3.5 w-3.5" />
-              <Input
-                type="email"
-                required
-                {...(mode === 'signup'
-                  ? registerForm.register('email')
-                  : loginForm.register('email'))}
-                placeholder="assure@hestia.fr"
-                className="border-border text-foreground focus:border-primary bg-card w-full rounded-xl border py-2 pr-3 pl-9 text-xs focus:outline-none"
-              />
+              {mode === 'signup' ? (
+                <Controller
+                  name="email"
+                  control={registerForm.control}
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      type="email"
+                      placeholder="assure@hestia.fr"
+                      className="border-border text-foreground focus:border-primary bg-card w-full rounded-xl border py-2 pr-3 pl-9 text-xs focus:outline-none"
+                    />
+                  )}
+                />
+              ) : (
+                <Controller
+                  name="email"
+                  control={loginForm.control}
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      type="email"
+                      placeholder="assure@hestia.fr"
+                      className="border-border text-foreground focus:border-primary bg-card w-full rounded-xl border py-2 pr-3 pl-9 text-xs focus:outline-none"
+                    />
+                  )}
+                />
+              )}
             </div>
-          </div>
+            <FieldError
+              errors={
+                mode === 'signup'
+                  ? [registerForm.formState.errors.email]
+                  : [loginForm.formState.errors.email]
+              }
+            />
+          </Field>
 
-          <div>
-            <Label className="text-foreground mb-1 block text-xs font-semibold">
+          <Field>
+            <FieldLabel className="text-foreground mb-1 block text-xs font-semibold">
               Mot de passe
-            </Label>
+            </FieldLabel>
             <div className="relative">
               <Lock className="text-muted-foreground absolute top-2.5 left-3 h-3.5 w-3.5" />
-              <Input
-                type="password"
-                required
-                {...(mode === 'signup'
-                  ? registerForm.register('password')
-                  : loginForm.register('password'))}
-                placeholder="••••••••••••"
-                className="border-border text-foreground focus:border-primary bg-card w-full rounded-xl border py-2 pr-3 pl-9 text-xs focus:outline-none"
-              />
+              {mode === 'signup' ? (
+                <Controller
+                  name="password"
+                  control={registerForm.control}
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      type="password"
+                      placeholder="••••••••••••"
+                      className="border-border text-foreground focus:border-primary bg-card w-full rounded-xl border py-2 pr-3 pl-9 text-xs focus:outline-none"
+                    />
+                  )}
+                />
+              ) : (
+                <Controller
+                  name="password"
+                  control={loginForm.control}
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      type="password"
+                      placeholder="••••••••••••"
+                      className="border-border text-foreground focus:border-primary bg-card w-full rounded-xl border py-2 pr-3 pl-9 text-xs focus:outline-none"
+                    />
+                  )}
+                />
+              )}
             </div>
-          </div>
+            <FieldError
+              errors={
+                mode === 'signup'
+                  ? [registerForm.formState.errors.password]
+                  : [loginForm.formState.errors.password]
+              }
+            />
+          </Field>
 
           <Button
             type="submit"
