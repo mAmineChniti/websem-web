@@ -39,10 +39,17 @@ export interface NlpIntentMatchStep {
   total_intents_available: number;
 }
 
+export interface NlpSlotStep {
+  library: string;
+  slots: Record<string, unknown>;
+  applied_filters: string[];
+}
+
 export interface NlpPipeline {
   step1_nltk: NlpTokenizationStep;
   step2_spacy: NlpSpacyStep;
   step3_intent: NlpIntentMatchStep;
+  step4_slots?: NlpSlotStep;
 }
 
 /** Response returned by POST /api/ontology/nlp/ask. */

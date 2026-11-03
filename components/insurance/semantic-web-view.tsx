@@ -27,6 +27,7 @@ import {
   ChevronRight,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   Brain,
   ChevronDown,
   ChevronUp,
@@ -120,6 +121,28 @@ function isContratRow(row: NullableStringRecord): boolean {
       str.includes('numero')) &&
     !str.includes('cin') &&
     !str.includes('telephone')
+  );
+}
+
+function isGarantieRow(row: NullableStringRecord): boolean {
+  return !!(
+    row.garantie ||
+    row.typeGarantie ||
+    row.plafond ||
+    row.taux ||
+    row.texteClause ||
+    row.clause
+  );
+}
+
+function isSinistreRow(row: NullableStringRecord): boolean {
+  return !!(
+    row.sinistre ||
+    row.typeSinistre ||
+    row.dateSinistre ||
+    row.lieuSinistre ||
+    row.descriptionSinistre ||
+    (row.description && (row.assureNom || row.prenomAssure || row.statut))
   );
 }
 
@@ -273,6 +296,172 @@ function ContratCard({ data }: { data: NullableStringRecord }) {
   );
 }
 
+function GarantieCard({ data }: { data: NullableStringRecord }) {
+  const raw = String(data.typeGarantie || data.garantie || '');
+  const label = raw.split('#').pop() || 'Garantie';
+  const plafond = data.plafond ? `${data.plafond} DT` : undefined;
+  const taux = data.taux ? `${data.taux}%` : undefined;
+  const contratList = data.contrats
+    ? String(data.contrats)
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
+  const sinistreList = data.sinistres
+    ? String(data.sinistres)
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
+
+  return (
+    <div className="border-border bg-muted flex flex-col gap-2 rounded-2xl border p-4">
+      <div className="flex items-center justify-between">
+        <span className="text-foreground text-sm font-bold">
+          {data.garantie ? String(data.garantie).split('#').pop() : label}
+        </span>
+        <span className="bg-muted text-primary rounded-full px-2.5 py-0.5 text-[10px] font-bold">
+          {label}
+        </span>
+      </div>
+      <div className="text-muted-foreground mt-1 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+        {plafond && (
+          <span className="flex items-center gap-1.5">
+            <DollarSign className="h-3 w-3 opacity-60" />
+            Plafond : <strong className="text-foreground">{plafond}</strong>
+          </span>
+        )}
+        {taux && (
+          <span className="flex items-center gap-1.5">
+            <Shield className="h-3 w-3 opacity-60" />
+            Franchise : <strong className="text-foreground">{taux}</strong>
+          </span>
+        )}
+        {data.texteClause && (
+          <span className="col-span-2 flex items-center gap-1.5">
+            <FileCheck2 className="h-3 w-3 opacity-60" />
+            <strong className="text-foreground">{data.texteClause}</strong>
+          </span>
+        )}
+        {contratList.length > 0 && (
+          <span className="col-span-2 flex items-center gap-1.5">
+            <FileCheck2 className="h-3 w-3 opacity-60" />
+            Contrats :{' '}
+            <strong className="text-foreground">
+              {contratList.join(', ')}
+            </strong>
+          </span>
+        )}
+        {sinistreList.length > 0 && (
+          <span className="col-span-2 flex items-center gap-1.5">
+            <AlertTriangle className="h-3 w-3 opacity-60" />
+            Sinistres couverts :{' '}
+            <strong className="text-foreground">
+              {sinistreList.join(', ')}
+            </strong>
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SinistreCard({ data }: { data: NullableStringRecord }) {
+  const type =
+    String(data.typeSinistre || '')
+      .split('#')
+      .pop() || 'Sinistre';
+  const assure =
+    [data.prenomAssure, data.nomAssure].filter(Boolean).join(' ') ||
+    (data.assure ? String(data.assure).split('#').pop() : undefined);
+  const garantieList = data.garanties
+    ? String(data.garanties)
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
+  const expertList = data.experts
+    ? String(data.experts)
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
+
+  return (
+    <div className="border-border bg-muted flex flex-col gap-2 rounded-2xl border p-4">
+      <div className="flex items-center justify-between">
+        <span className="text-foreground text-sm font-bold">
+          {data.sinistre ? String(data.sinistre).split('#').pop() : type}
+        </span>
+        <span className="bg-muted text-primary rounded-full px-2.5 py-0.5 text-[10px] font-bold">
+          {type}
+        </span>
+      </div>
+      <div className="text-muted-foreground mt-1 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+        {data.dateSinistre && (
+          <span className="flex items-center gap-1.5">
+            <Calendar className="h-3 w-3 opacity-60" />
+            Date :{' '}
+            <strong className="text-foreground">{data.dateSinistre}</strong>
+          </span>
+        )}
+        {data.lieuSinistre && (
+          <span className="flex items-center gap-1.5">
+            <MapPin className="h-3 w-3 opacity-60" />
+            Lieu :{' '}
+            <strong className="text-foreground">{data.lieuSinistre}</strong>
+          </span>
+        )}
+        {assure && (
+          <span className="flex items-center gap-1.5">
+            <User className="h-3 w-3 opacity-60" />
+            Assuré : <strong className="text-foreground">{assure}</strong>
+          </span>
+        )}
+        {data.statut && (
+          <span className="flex items-center gap-1.5">
+            <Tag className="h-3 w-3 opacity-60" />
+            Statut : <strong className="text-foreground">{data.statut}</strong>
+          </span>
+        )}
+        {data.montantIndemnise && (
+          <span className="flex items-center gap-1.5">
+            <DollarSign className="h-3 w-3 opacity-60" />
+            Indemnité :{' '}
+            <strong className="text-foreground">
+              {data.montantIndemnise} DT
+            </strong>
+          </span>
+        )}
+        {(data.description || data.descriptionSinistre) && (
+          <span className="col-span-2 flex items-center gap-1.5">
+            <AlertTriangle className="h-3 w-3 opacity-60" />
+            <strong className="text-foreground">
+              {data.description || data.descriptionSinistre}
+            </strong>
+          </span>
+        )}
+        {garantieList.length > 0 && (
+          <span className="col-span-2 flex items-center gap-1.5">
+            <Shield className="h-3 w-3 opacity-60" />
+            Garanties :{' '}
+            <strong className="text-foreground">
+              {garantieList.join(', ')}
+            </strong>
+          </span>
+        )}
+        {expertList.length > 0 && (
+          <span className="col-span-2 flex items-center gap-1.5">
+            <User className="h-3 w-3 opacity-60" />
+            Experts :{' '}
+            <strong className="text-foreground">{expertList.join(', ')}</strong>
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Pipeline NLP Panel ────────────────────────────────────────────────────────
 function NLPPipelinePanel({
   pipeline,
@@ -294,6 +483,7 @@ function NLPPipelinePanel({
   const step1 = pipeline?.step1_nltk;
   const step2 = pipeline?.step2_spacy;
   const step3 = pipeline?.step3_intent;
+  const step4 = pipeline?.step4_slots;
 
   return (
     <div className="border-border bg-muted dark:border-border dark:bg-muted overflow-hidden rounded-2xl border">
@@ -486,6 +676,63 @@ function NLPPipelinePanel({
             </div>
           )}
 
+          {/* Step 4 — Slots */}
+          {step4 && (
+            <div className="bg-card dark:bg-card border-border dark:border-border rounded-xl border p-3">
+              <div className="mb-2 flex items-center gap-2">
+                <span className="text-primary-foreground bg-muted flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold">
+                  4
+                </span>
+                <span className="text-foreground dark:text-foreground text-xs font-bold">
+                  Slots & Filtres SPARQL
+                </span>
+                <span className="bg-muted text-primary dark:bg-muted dark:text-primary rounded-full px-2 py-0.5 font-mono text-[9px]">
+                  {step4.library}
+                </span>
+              </div>
+              <div className="space-y-1.5 text-[11px]">
+                {Object.keys(step4.slots || {}).length > 0 ? (
+                  <div>
+                    <span className="text-muted-foreground font-semibold">
+                      Paramètres extraits :
+                    </span>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {Object.entries(step4.slots || {}).map(([k, v], i) => (
+                        <span
+                          key={i}
+                          className="bg-muted text-primary dark:bg-muted dark:text-primary rounded-lg px-1.5 py-0.5 font-mono"
+                        >
+                          {k}: {String(v)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground italic">
+                    Aucun filtre de slot appliqué.
+                  </p>
+                )}
+                {step4.applied_filters && step4.applied_filters.length > 0 && (
+                  <div>
+                    <span className="text-muted-foreground font-semibold">
+                      Filtres appliqués :
+                    </span>
+                    <div className="mt-1 space-y-1">
+                      {step4.applied_filters.map((f: string, i: number) => (
+                        <pre
+                          key={i}
+                          className="text-primary overflow-x-auto font-mono text-[10px] leading-relaxed whitespace-pre-wrap"
+                        >
+                          {f}
+                        </pre>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* SPARQL générée */}
           <div className="border-border bg-background dark:border-border rounded-xl border p-3">
             <p className="text-muted-foreground mb-2 text-[10px] font-bold tracking-wider uppercase">
@@ -551,8 +798,26 @@ export function SemanticWebView({ userRole = 'Admin' }: { userRole?: string }) {
   );
   const personRows = rows.filter((r: NullableStringRecord) => isPersonRow(r));
   const contratRows = rows.filter((r: NullableStringRecord) => isContratRow(r));
+  const garantieRows = rows.filter(
+    (r: NullableStringRecord) =>
+      isGarantieRow(r) &&
+      !isPersonRow(r) &&
+      !isContratRow(r) &&
+      !isSinistreRow(r)
+  );
+  const sinistreRows = rows.filter(
+    (r: NullableStringRecord) =>
+      isSinistreRow(r) &&
+      !isPersonRow(r) &&
+      !isContratRow(r) &&
+      !isGarantieRow(r)
+  );
   const otherRows = rows.filter(
-    (r: NullableStringRecord) => !isPersonRow(r) && !isContratRow(r)
+    (r: NullableStringRecord) =>
+      !isPersonRow(r) &&
+      !isContratRow(r) &&
+      !isGarantieRow(r) &&
+      !isSinistreRow(r)
   );
 
   if (userRole === 'Assure') {
@@ -796,6 +1061,38 @@ export function SemanticWebView({ userRole = 'Admin' }: { userRole?: string }) {
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 {contratRows.map((row: NullableStringRecord, i: number) => (
                   <ContratCard key={i} data={row} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {garantieRows.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Shield className="text-primary h-4 w-4" />
+                <h2 className="text-foreground dark:text-foreground text-sm font-bold">
+                  Garanties ({garantieRows.length})
+                </h2>
+              </div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                {garantieRows.map((row: NullableStringRecord, i: number) => (
+                  <GarantieCard key={i} data={row} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {sinistreRows.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="text-primary h-4 w-4" />
+                <h2 className="text-foreground dark:text-foreground text-sm font-bold">
+                  Sinistres ({sinistreRows.length})
+                </h2>
+              </div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                {sinistreRows.map((row: NullableStringRecord, i: number) => (
+                  <SinistreCard key={i} data={row} />
                 ))}
               </div>
             </div>
