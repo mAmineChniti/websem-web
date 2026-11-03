@@ -40,10 +40,17 @@ export const nlpIntentMatchStepSchema = z.object({
   total_intents_available: z.number().int(),
 });
 
+export const nlpSlotStepSchema = z.object({
+  library: z.string(),
+  slots: z.record(z.string(), z.unknown()).default({}),
+  applied_filters: z.array(z.string()).default([]),
+});
+
 export const nlpPipelineSchema = z.object({
   step1_nltk: nlpTokenizationStepSchema,
   step2_spacy: nlpSpacyStepSchema,
   step3_intent: nlpIntentMatchStepSchema,
+  step4_slots: nlpSlotStepSchema.optional(),
 });
 
 export const nlpAskResultSchema = z.object({
