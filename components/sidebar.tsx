@@ -13,6 +13,7 @@ import {
   Terminal,
   Code2,
   ShieldCheck,
+  Scale,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -21,6 +22,8 @@ interface SidebarProps {
   openContratModal?: () => void;
   personnesCount: number;
   contratsCount: number;
+  dommagesCount?: number;
+  clausesCount?: number;
   userRole?: string;
 }
 
@@ -29,6 +32,8 @@ export function Sidebar({
   onSelectTab,
   personnesCount,
   contratsCount,
+  dommagesCount,
+  clausesCount,
   userRole = 'Assure',
 }: SidebarProps) {
   const isAssure = userRole === 'Assure';
@@ -67,6 +72,20 @@ export function Sidebar({
       badge: `${contratsCount}`,
       badgeColor: 'bg-primary/10 text-primary dark:bg-primary',
       description: 'Propriétaire, Locataire, Copropriété',
+    },
+    {
+      id: 'dommages',
+      label: 'Dommages',
+      icon: AlertTriangle,
+      badge: dommagesCount ? `${dommagesCount}` : undefined,
+      description: 'Matériels, Corporels & Immatériels',
+    },
+    {
+      id: 'clauses',
+      label: 'Clauses',
+      icon: Scale,
+      badge: clausesCount ? `${clausesCount}` : undefined,
+      description: 'Exclusions, Franchises & Obligations',
     },
     {
       id: 'sinistres',

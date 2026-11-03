@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
   PlusCircle,
@@ -13,33 +14,103 @@ import {
   ShieldAlert,
   Calendar,
   MapPin,
-  DollarSign,
-  FileText,
   Activity,
-  Layers,
-  CheckCircle,
 } from 'lucide-react';
 
-interface Dommage {
-  id: string;
-  type: string;
-  description: string;
-  montant: number;
-  gravite: string;
-  sinistre?: string | null;
-  date?: string | null;
-  lieu?: string | null;
-}
+import type {
+  CreateDommagePayload,
+  Dommage,
+  UpdateDommagePayload,
+} from '@/lib/types/dommages';
+import {
+  createDommage,
+  deleteDommage,
+  listDommages,
+  updateDommage,
+} from '@/lib/services/dommages';
+
+const getGraviteBadge = (gravite: string) => {
+  switch (gravite) {
+    case 'Grave': {
+      return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-950/60 dark:text-red-300 dark:border-red-800';
+    }
+    case 'Moyen': {
+      return 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800';
+    }
+    default: {
+      return 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800';
+    }
+  }
+};
+
+const getTypeBadge = (type: string) => {
+  if (type.includes('Materiel')) {
+    return {
+      label: 'Matériel',
+      color: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300',
+      icon: '🏚️',
+    };
+  } else if (type.includes('Corporel')) {
+    return {
+      label: 'Corporel',
+      color: 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300',
+      icon: '🩺',
+    };
+  } else {
+    return {
+      label: 'Immatériel',
+      color:
+        'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300',
+      icon: '📑',
+    };
+  }
+};
 
 interface DommagesViewProps {
   userRole?: string;
   onCountChange?: (count: number) => void;
 }
 
-export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesViewProps) {
-  const [dommages, setDommages] = useState<Dommage[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export function DommagesView({
+  userRole = 'Assure',
+  onCountChange,
+}: DommagesViewProps) {
+  const queryClient = useQueryClient();
+  const dommagesQuery = useQuery({
+    queryKey: ['dommages'],
+    queryFn: listDommages,
+  });
+  const createMutation = useMutation({
+    mutationFn: createDommage,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['dommages'] });
+    },
+  });
+  const updateMutation = useMutation({
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: UpdateDommagePayload;
+    }) => updateDommage(id, payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['dommages'] });
+    },
+  });
+  const deleteMutation = useMutation({
+    mutationFn: deleteDommage,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['dommages'] });
+    },
+  });
+  const dommages = dommagesQuery.data ?? [];
+  const loading = dommagesQuery.isPending;
+  const error = dommagesQuery.error
+    ? dommagesQuery.error instanceof Error
+      ? dommagesQuery.error.message
+      : 'Impossible de charger les dommages.'
+    : undefined;
   const [filterType, setFilterType] = useState<string>('Tous');
   const [search, setSearch] = useState('');
 
@@ -52,11 +123,11 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
   const [addSinistreId, setAddSinistreId] = useState('Sinistre1');
   const [addDate, setAddDate] = useState('2026-03-20T10:00:00');
   const [addLieu, setAddLieu] = useState('Tunis');
-  const [addError, setAddError] = useState<string | null>(null);
+  const [addError, setAddError] = useState<string | undefined>();
 
   // Modale d'édition
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<Dommage | null>(null);
+  const [editTarget, setEditTarget] = useState<Dommage | undefined>();
   const [editType, setEditType] = useState('DommageMateriel');
   const [editDescription, setEditDescription] = useState('');
   const [editMontant, setEditMontant] = useState('');
@@ -64,72 +135,49 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
   const [editSinistreId, setEditSinistreId] = useState('');
   const [editDate, setEditDate] = useState('');
   const [editLieu, setEditLieu] = useState('');
-  const [editError, setEditError] = useState<string | null>(null);
+  const [editError, setEditError] = useState<string | undefined>();
 
   // Suppression
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | undefined>();
 
   // Habilitations selon le rôle
-  const canManage = userRole === 'Agent' || userRole === 'Admin' || userRole === 'Expert';
+  const canManage = ['Agent', 'Admin', 'Expert'].includes(userRole);
   const canDelete = userRole === 'Admin';
 
-  const fetchDommages = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`${apiUrl}/api/dommages/`);
-      if (!res.ok) throw new Error(`Erreur HTTP: ${res.status}`);
-      const data = await res.json();
-      setDommages(data);
-      if (onCountChange) onCountChange(data.length);
-    } catch (err: any) {
-      setError(err.message || 'Impossible de charger les dommages.');
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (onCountChange && dommagesQuery.data) {
+      onCountChange(dommagesQuery.data.length);
     }
+  }, [dommagesQuery.data, onCountChange]);
+
+  const fetchDommages = () => {
+    void dommagesQuery.refetch();
   };
 
-  useEffect(() => {
-    fetchDommages();
-  }, []);
-
-  const handleCreateDommage = async (e: React.FormEvent) => {
+  const handleCreateDommage = async (e: React.SyntheticEvent) => {
     e.preventDefault();
-    setAddError(null);
+    setAddError(undefined);
     if (!addDescription.trim()) {
       setAddError('La description du dommage est obligatoire.');
       return;
     }
 
+    const payload: CreateDommagePayload = {
+      type_dommage: addType,
+      description: addDescription,
+      montant: Number.parseFloat(addMontant) || 0,
+      gravite: addGravite,
+      sinistre_id: addSinistreId || undefined,
+      date: addDate,
+      lieu: addLieu,
+    };
+
     try {
-      const payload = {
-        type_dommage: addType,
-        description: addDescription,
-        montant: parseFloat(addMontant) || 0,
-        gravite: addGravite,
-        sinistre_id: addSinistreId || null,
-        date: addDate,
-        lieu: addLieu,
-      };
-
-      const res = await fetch(`${apiUrl}/api/dommages/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || 'Erreur lors de la création');
-      }
-
+      await createMutation.mutateAsync(payload);
       setIsAddModalOpen(false);
       setAddDescription('');
-      fetchDommages();
-    } catch (err: any) {
-      setAddError(err.message);
+    } catch (error_: unknown) {
+      setAddError((error_ as Error).message);
     }
   };
 
@@ -142,54 +190,39 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
     setEditSinistreId(d.sinistre || '');
     setEditDate(d.date || '2026-03-20T10:00:00');
     setEditLieu(d.lieu || '');
-    setEditError(null);
+    setEditError(undefined);
     setIsEditModalOpen(true);
   };
 
-  const handleUpdateDommage = async (e: React.FormEvent) => {
+  const handleUpdateDommage = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     if (!editTarget) return;
-    setEditError(null);
+    setEditError(undefined);
+
+    const payload: UpdateDommagePayload = {
+      type_dommage: editType,
+      description: editDescription,
+      montant: Number.parseFloat(editMontant) || 0,
+      gravite: editGravite,
+      sinistre_id: editSinistreId || undefined,
+      date: editDate,
+      lieu: editLieu,
+    };
 
     try {
-      const payload = {
-        type_dommage: editType,
-        description: editDescription,
-        montant: parseFloat(editMontant) || 0,
-        gravite: editGravite,
-        sinistre_id: editSinistreId || null,
-        date: editDate,
-        lieu: editLieu,
-      };
-
-      const res = await fetch(`${apiUrl}/api/dommages/${editTarget.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || 'Erreur lors de la mise à jour');
-      }
-
+      await updateMutation.mutateAsync({ id: editTarget.id, payload });
       setIsEditModalOpen(false);
-      fetchDommages();
-    } catch (err: any) {
-      setEditError(err.message);
+    } catch (error_: unknown) {
+      setEditError((error_ as Error).message);
     }
   };
 
   const handleDeleteDommage = async (id: string) => {
     try {
-      const res = await fetch(`${apiUrl}/api/dommages/${id}`, {
-        method: 'DELETE',
-      });
-      if (!res.ok) throw new Error('Erreur lors de la suppression');
-      setDeleteConfirmId(null);
-      fetchDommages();
-    } catch (err: any) {
-      alert(`Erreur : ${err.message}`);
+      await deleteMutation.mutateAsync(id);
+      setDeleteConfirmId(undefined);
+    } catch (error_: unknown) {
+      alert(`Erreur : ${(error_ as Error).message}`);
     }
   };
 
@@ -206,55 +239,25 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
     return matchType && matchSearch;
   });
 
-  const getGraviteBadge = (gravite: string) => {
-    switch (gravite) {
-      case 'Grave':
-        return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-950/60 dark:text-red-300 dark:border-red-800';
-      case 'Moyen':
-        return 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800';
-      case 'Faible':
-      default:
-        return 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800';
-    }
-  };
-
-  const getTypeBadge = (type: string) => {
-    if (type.includes('Materiel')) {
-      return {
-        label: 'Matériel',
-        color: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300',
-        icon: '🏚️',
-      };
-    } else if (type.includes('Corporel')) {
-      return {
-        label: 'Corporel',
-        color: 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300',
-        icon: '🩺',
-      };
-    } else {
-      return {
-        label: 'Immatériel',
-        color: 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300',
-        icon: '📑',
-      };
-    }
-  };
-
   return (
     <div className="space-y-6">
       {/* En-tête */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <span className="p-2 rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400">
+            <span className="rounded-xl bg-amber-50 p-2 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400">
               <AlertTriangle className="h-6 w-6" />
             </span>
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+              <h1 className="text-xl font-bold tracking-tight text-zinc-900 sm:text-2xl dark:text-zinc-50">
                 Gestion des Dommages & Conséquences
               </h1>
-              <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
-                Classe ontologique <code className="font-mono text-amber-600 dark:text-amber-400">Dommage</code> rattachée aux Sinistres déclarés (Module Montaha Trabelsi).
+              <p className="text-xs text-zinc-500 sm:text-sm dark:text-zinc-400">
+                Classe ontologique{' '}
+                <code className="font-mono text-amber-600 dark:text-amber-400">
+                  Dommage
+                </code>{' '}
+                rattachée aux Sinistres déclarés (Module Montaha Trabelsi).
               </p>
             </div>
           </div>
@@ -264,7 +267,7 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
           <button
             onClick={fetchDommages}
             disabled={loading}
-            className="inline-flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-3.5 py-2 text-xs font-semibold text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 transition-colors"
+            className="inline-flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-3.5 py-2 text-xs font-semibold text-zinc-700 shadow-sm transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             <span>Actualiser</span>
@@ -273,7 +276,7 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
           {canManage && (
             <button
               onClick={() => setIsAddModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-amber-700 transition-colors"
+              className="inline-flex items-center gap-2 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition-colors hover:bg-amber-700"
             >
               <PlusCircle className="h-4 w-4" />
               <span>Nouveau Dommage</span>
@@ -283,21 +286,23 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
       </div>
 
       {/* Barre de recherche et filtres */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+      <div className="flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="relative max-w-md flex-1">
+          <Search className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-zinc-400" />
           <input
             type="text"
             placeholder="Rechercher par description, lieu, ID ou sinistre..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 pl-10 pr-4 py-2 text-xs text-zinc-900 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
+            className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 py-2 pr-4 pl-10 text-xs text-zinc-900 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
           />
         </div>
 
         <div className="flex items-center gap-2">
           <Filter className="h-4 w-4 text-zinc-400" />
-          <span className="text-xs font-medium text-zinc-500">Sous-classe :</span>
+          <span className="text-xs font-medium text-zinc-500">
+            Sous-classe :
+          </span>
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
@@ -313,40 +318,52 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
 
       {/* Erreur de chargement */}
       {error && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-xs text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300 flex items-center justify-between">
+        <div className="flex items-center justify-between rounded-2xl border border-red-200 bg-red-50 p-4 text-xs text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
           <span>{error}</span>
-          <button onClick={fetchDommages} className="font-bold underline ml-4">Réessayer</button>
+          <button onClick={fetchDommages} className="ml-4 font-bold underline">
+            Réessayer
+          </button>
         </div>
       )}
 
       {/* Tableau des dommages */}
       <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full border-collapse text-left">
             <thead>
-              <tr className="border-b border-zinc-200 bg-zinc-50/75 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 dark:border-zinc-800 dark:bg-zinc-800/40 dark:text-zinc-400">
-                <th className="py-3.5 px-4">Identifiant & Type</th>
-                <th className="py-3.5 px-4">Description du Sinistre</th>
-                <th className="py-3.5 px-4">Gravité</th>
-                <th className="py-3.5 px-4">Montant Estimé / Indemnisé</th>
-                <th className="py-3.5 px-4">Sinistre Associé</th>
-                <th className="py-3.5 px-4">Date & Lieu</th>
-                {canManage && <th className="py-3.5 px-4 text-right">Actions</th>}
+              <tr className="border-b border-zinc-200 bg-zinc-50/75 text-[11px] font-semibold tracking-wider text-zinc-500 uppercase dark:border-zinc-800 dark:bg-zinc-800/40 dark:text-zinc-400">
+                <th className="px-4 py-3.5">Identifiant & Type</th>
+                <th className="px-4 py-3.5">Description du Sinistre</th>
+                <th className="px-4 py-3.5">Gravité</th>
+                <th className="px-4 py-3.5">Montant Estimé / Indemnisé</th>
+                <th className="px-4 py-3.5">Sinistre Associé</th>
+                <th className="px-4 py-3.5">Date & Lieu</th>
+                {canManage && (
+                  <th className="px-4 py-3.5 text-right">Actions</th>
+                )}
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800 text-xs">
+            <tbody className="divide-y divide-zinc-200 text-xs dark:divide-zinc-800">
               {loading ? (
                 <tr>
-                  <td colSpan={canManage ? 7 : 6} className="py-12 text-center text-zinc-400">
+                  <td
+                    colSpan={canManage ? 7 : 6}
+                    className="py-12 text-center text-zinc-400"
+                  >
                     <div className="flex flex-col items-center justify-center gap-2">
                       <RefreshCw className="h-6 w-6 animate-spin text-amber-500" />
-                      <span>Chargement des triplets Dommage depuis le graphe RDF...</span>
+                      <span>
+                        Chargement des triplets Dommage depuis le graphe RDF...
+                      </span>
                     </div>
                   </td>
                 </tr>
               ) : filteredDommages.length === 0 ? (
                 <tr>
-                  <td colSpan={canManage ? 7 : 6} className="py-12 text-center text-zinc-400">
+                  <td
+                    colSpan={canManage ? 7 : 6}
+                    className="py-12 text-center text-zinc-400"
+                  >
                     Aucun dommage ne correspond aux critères de recherche.
                   </td>
                 </tr>
@@ -356,9 +373,9 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
                   return (
                     <tr
                       key={d.id}
-                      className="hover:bg-zinc-50/60 dark:hover:bg-zinc-800/30 transition-colors"
+                      className="transition-colors hover:bg-zinc-50/60 dark:hover:bg-zinc-800/30"
                     >
-                      <td className="py-3.5 px-4">
+                      <td className="px-4 py-3.5">
                         <div className="flex items-center gap-2">
                           <span className="text-base">{typeInfo.icon}</span>
                           <div>
@@ -366,7 +383,9 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
                               {d.id}
                             </span>
                             <div className="mt-0.5">
-                              <span className={`inline-block rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${typeInfo.color}`}>
+                              <span
+                                className={`inline-block rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${typeInfo.color}`}
+                              >
                                 {typeInfo.label}
                               </span>
                             </div>
@@ -374,37 +393,50 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
                         </div>
                       </td>
 
-                      <td className="py-3.5 px-4 max-w-xs">
-                        <p className="font-medium text-zinc-800 dark:text-zinc-200 line-clamp-2">
-                          {d.description || <span className="text-zinc-400 italic">Aucune description</span>}
+                      <td className="max-w-xs px-4 py-3.5">
+                        <p className="line-clamp-2 font-medium text-zinc-800 dark:text-zinc-200">
+                          {d.description || (
+                            <span className="text-zinc-400 italic">
+                              Aucune description
+                            </span>
+                          )}
                         </p>
                       </td>
 
-                      <td className="py-3.5 px-4">
-                        <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${getGraviteBadge(d.gravite)}`}>
+                      <td className="px-4 py-3.5">
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${getGraviteBadge(d.gravite)}`}
+                        >
                           <span className="h-1.5 w-1.5 rounded-full bg-current" />
                           {d.gravite || 'Non qualifié'}
                         </span>
                       </td>
 
-                      <td className="py-3.5 px-4">
+                      <td className="px-4 py-3.5">
                         <div className="font-mono font-semibold text-zinc-900 dark:text-zinc-100">
-                          {d.montant ? Number(d.montant).toLocaleString('fr-FR', { minimumFractionDigits: 2 }) : '0,00'} DT
+                          {d.montant
+                            ? Number(d.montant).toLocaleString('fr-FR', {
+                                minimumFractionDigits: 2,
+                              })
+                            : '0,00'}{' '}
+                          DT
                         </div>
                       </td>
 
-                      <td className="py-3.5 px-4">
+                      <td className="px-4 py-3.5">
                         {d.sinistre ? (
-                          <span className="inline-flex items-center gap-1 font-mono text-[11px] bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-md text-blue-700 dark:text-blue-300 font-semibold">
+                          <span className="inline-flex items-center gap-1 rounded-md bg-zinc-100 px-2 py-0.5 font-mono text-[11px] font-semibold text-blue-700 dark:bg-zinc-800 dark:text-blue-300">
                             <Activity className="h-3 w-3" />
                             {d.sinistre}
                           </span>
                         ) : (
-                          <span className="text-zinc-400 italic text-[11px]">Non lié</span>
+                          <span className="text-[11px] text-zinc-400 italic">
+                            Non lié
+                          </span>
                         )}
                       </td>
 
-                      <td className="py-3.5 px-4 text-zinc-500 dark:text-zinc-400">
+                      <td className="px-4 py-3.5 text-zinc-500 dark:text-zinc-400">
                         <div className="space-y-0.5 text-[11px]">
                           {d.date && (
                             <div className="flex items-center gap-1">
@@ -418,17 +450,19 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
                               <span>{d.lieu}</span>
                             </div>
                           )}
-                          {!d.date && !d.lieu && <span className="italic">Non renseigné</span>}
+                          {!d.date && !d.lieu && (
+                            <span className="italic">Non renseigné</span>
+                          )}
                         </div>
                       </td>
 
                       {canManage && (
-                        <td className="py-3.5 px-4 text-right">
+                        <td className="px-4 py-3.5 text-right">
                           <div className="flex items-center justify-end gap-1.5">
                             <button
                               onClick={() => openEditModal(d)}
                               title="Modifier ce dommage"
-                              className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-blue-600 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-blue-400 transition-colors"
+                              className="rounded-lg p-1.5 text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-blue-600 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-blue-400"
                             >
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
@@ -437,7 +471,7 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
                               <button
                                 onClick={() => setDeleteConfirmId(d.id)}
                                 title="Supprimer ce dommage de l'ontologie"
-                                className="rounded-lg p-1.5 text-zinc-500 hover:bg-red-50 hover:text-red-600 dark:text-zinc-400 dark:hover:bg-red-950/50 dark:hover:text-red-400 transition-colors"
+                                className="rounded-lg p-1.5 text-zinc-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:text-zinc-400 dark:hover:bg-red-950/50 dark:hover:text-red-400"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </button>
@@ -456,9 +490,9 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
 
       {/* Modal Ajout Dommage */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="animate-in fade-in zoom-in-95 relative w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl duration-200 dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex items-center justify-between border-b border-zinc-100 pb-4 dark:border-zinc-800">
               <div className="flex items-center gap-2 text-amber-600">
                 <AlertTriangle className="h-5 w-5" />
                 <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-50">
@@ -482,7 +516,7 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
             <form onSubmit={handleCreateDommage} className="mt-4 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label className="mb-1 block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                     Sous-classe OWL
                   </label>
                   <select
@@ -492,12 +526,14 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
                   >
                     <option value="DommageMateriel">Dommage Matériel</option>
                     <option value="DommageCorporel">Dommage Corporel</option>
-                    <option value="DommageImmateriel">Dommage Immatériel</option>
+                    <option value="DommageImmateriel">
+                      Dommage Immatériel
+                    </option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label className="mb-1 block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                     Niveau de Gravité
                   </label>
                   <select
@@ -513,7 +549,7 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                <label className="mb-1 block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                   Description du dommage *
                 </label>
                 <textarea
@@ -528,7 +564,7 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label className="mb-1 block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                     Montant estimé (DT)
                   </label>
                   <input
@@ -542,7 +578,7 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label className="mb-1 block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                     Sinistre rattaché
                   </label>
                   <input
@@ -557,7 +593,7 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label className="mb-1 block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                     Date du sinistre
                   </label>
                   <input
@@ -570,7 +606,7 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label className="mb-1 block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                     Lieu
                   </label>
                   <input
@@ -583,7 +619,7 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
                 </div>
               </div>
 
-              <div className="pt-3 flex justify-end gap-2 border-t border-zinc-100 dark:border-zinc-800">
+              <div className="flex justify-end gap-2 border-t border-zinc-100 pt-3 dark:border-zinc-800">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
@@ -595,7 +631,7 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
                   type="submit"
                   className="rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700"
                 >
-                  Créer dans l'ontologie
+                  Créer dans l&apos;ontologie
                 </button>
               </div>
             </form>
@@ -605,9 +641,9 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
 
       {/* Modal Édition Dommage */}
       {isEditModalOpen && editTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="animate-in fade-in zoom-in-95 relative w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl duration-200 dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex items-center justify-between border-b border-zinc-100 pb-4 dark:border-zinc-800">
               <div className="flex items-center gap-2 text-blue-600">
                 <Pencil className="h-5 w-5" />
                 <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-50">
@@ -631,7 +667,7 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
             <form onSubmit={handleUpdateDommage} className="mt-4 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label className="mb-1 block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                     Sous-classe OWL
                   </label>
                   <select
@@ -641,12 +677,14 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
                   >
                     <option value="DommageMateriel">Dommage Matériel</option>
                     <option value="DommageCorporel">Dommage Corporel</option>
-                    <option value="DommageImmateriel">Dommage Immatériel</option>
+                    <option value="DommageImmateriel">
+                      Dommage Immatériel
+                    </option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label className="mb-1 block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                     Niveau de Gravité
                   </label>
                   <select
@@ -662,7 +700,7 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                <label className="mb-1 block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                   Description du dommage
                 </label>
                 <textarea
@@ -675,7 +713,7 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label className="mb-1 block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                     Montant estimé (DT)
                   </label>
                   <input
@@ -689,7 +727,7 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label className="mb-1 block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                     Sinistre rattaché
                   </label>
                   <input
@@ -703,7 +741,7 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label className="mb-1 block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                     Date du sinistre
                   </label>
                   <input
@@ -715,7 +753,7 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label className="mb-1 block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                     Lieu
                   </label>
                   <input
@@ -727,7 +765,7 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
                 </div>
               </div>
 
-              <div className="pt-3 flex justify-end gap-2 border-t border-zinc-100 dark:border-zinc-800">
+              <div className="flex justify-end gap-2 border-t border-zinc-100 pt-3 dark:border-zinc-800">
                 <button
                   type="button"
                   onClick={() => setIsEditModalOpen(false)}
@@ -749,20 +787,25 @@ export function DommagesView({ userRole = 'Assure', onCountChange }: DommagesVie
 
       {/* Confirmation de suppression */}
       {deleteConfirmId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl border border-red-200 bg-white p-6 shadow-2xl dark:border-red-900 dark:bg-zinc-900">
-            <div className="flex items-center gap-3 text-red-600 mb-3">
+            <div className="mb-3 flex items-center gap-3 text-red-600">
               <ShieldAlert className="h-6 w-6" />
-              <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
+              <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
                 Supprimer le dommage ?
               </h3>
             </div>
-            <p className="text-xs text-zinc-600 dark:text-zinc-400 mb-4">
-              Êtes-vous sûr de vouloir supprimer définitivement <strong className="text-zinc-900 dark:text-zinc-200">{deleteConfirmId}</strong> de l'ontologie RDF ? Tous les triplets associés seront retirés du graphe de connaissances.
+            <p className="mb-4 text-xs text-zinc-600 dark:text-zinc-400">
+              Êtes-vous sûr de vouloir supprimer définitivement{' '}
+              <strong className="text-zinc-900 dark:text-zinc-200">
+                {deleteConfirmId}
+              </strong>{' '}
+              de l&apos;ontologie RDF ? Tous les triplets associés seront
+              retirés du graphe de connaissances.
             </p>
             <div className="flex justify-end gap-2">
               <button
-                onClick={() => setDeleteConfirmId(null)}
+                onClick={() => setDeleteConfirmId(undefined)}
                 className="rounded-xl border border-zinc-200 px-3.5 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300"
               >
                 Annuler

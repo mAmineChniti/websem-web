@@ -196,9 +196,13 @@ export default function Home() {
             />
           )}
 
-          {currentTab === 'sinistres' && <SinistresView userRole={user?.role} />}
+          {currentTab === 'sinistres' && (
+            <SinistresView userRole={user?.role} />
+          )}
 
-          {currentTab === 'garanties' && <GarantiesView userRole={user?.role} />}
+          {currentTab === 'garanties' && (
+            <GarantiesView userRole={user?.role} />
+          )}
 
           {currentTab === 'sparql' && (
             <SemanticWebView userRole={user?.role || 'Assure'} />
@@ -209,11 +213,17 @@ export default function Home() {
           )}
 
           {currentTab === 'dommages' && (
-            <DommagesView userRole={user?.role} onCountChange={setDommagesCount} />
+            <DommagesView
+              userRole={user?.role}
+              onCountChange={setDommagesCount}
+            />
           )}
 
           {currentTab === 'clauses' && (
-            <ClausesView userRole={user?.role} onCountChange={setClausesCount} />
+            <ClausesView
+              userRole={user?.role}
+              onCountChange={setClausesCount}
+            />
           )}
         </main>
       </div>

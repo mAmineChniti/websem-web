@@ -76,34 +76,47 @@ export function Sidebar({
       id: 'dommages',
       label: 'Dommages',
       icon: AlertTriangle,
-      badge: dommagesCount !== undefined ? `${dommagesCount}` : null,
-      badgeColor: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300',
+      badge: dommagesCount ? `${dommagesCount}` : undefined,
+      badgeColor:
+        'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300',
       description: 'Matériels, Corporels & Immatériels',
     },
     {
       id: 'clauses',
       label: 'Clauses',
       icon: Scale,
-      badge: clausesCount !== undefined ? `${clausesCount}` : null,
-      badgeColor: 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300',
+      badge: clausesCount ? `${clausesCount}` : undefined,
+      badgeColor:
+        'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300',
       description: 'Exclusions, Franchises & Obligations',
     },
-    ...(userRole !== 'Assure' ? [{
-      id: 'sparql',
-      label: 'Recherche & Intelligence NLP',
-      icon: Terminal,
-      badge: 'IA',
-      badgeColor: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300',
-      description: 'Interrogation sémantique en français',
-    }] : []),
-    ...(userRole === 'Admin' ? [{
-      id: 'sparql-explorer',
-      label: 'Explorateur SPARQL',
-      icon: Code2,
-      badge: '12',
-      badgeColor: 'bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300',
-      description: 'Console SPARQL interactive (démo technique)',
-    }] : []),
+    ...(userRole === 'Assure'
+      ? []
+      : [
+          {
+            id: 'sparql',
+            label: 'Recherche & Intelligence NLP',
+            icon: Terminal,
+            badge: 'IA',
+            badgeColor:
+              'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300',
+            description: 'Interrogation sémantique en français',
+          },
+        ]),
+    ...(userRole === 'Admin'
+      ? [
+          {
+            id: 'sparql-explorer',
+            label: 'Explorateur SPARQL',
+            icon: Code2,
+            badge: '12',
+            badgeColor:
+              'bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300',
+            description: 'Console SPARQL interactive (démo technique)',
+          },
+        ]
+      : []),
+  ];
 
   return (
     <aside className="border-border/80 bg-muted/50 dark:border-border/80 dark:bg-background/50 flex w-full shrink-0 flex-col justify-between border-r p-4 lg:w-64">

@@ -1,12 +1,14 @@
 import { z } from 'zod';
 
 export const dommageSchema = z.object({
-  dommage: z.string(),
-  typeDommage: z.string(),
-  description: z.string().nullable(),
-  niveauGravite: z.string().nullable(),
-  valeurBien: z.string().nullable(),
-  associeSinistre: z.string().nullable(),
+  id: z.string(),
+  type: z.string(),
+  description: z.string(),
+  montant: z.number(),
+  gravite: z.string(),
+  sinistre: z.string().nullable(),
+  date: z.string().nullable(),
+  lieu: z.string().nullable(),
 });
 
 export const dommagesListSchema = z.array(dommageSchema);
@@ -14,18 +16,26 @@ export const dommagesListSchema = z.array(dommageSchema);
 export const dommageDetailSchema = dommageSchema.partial();
 
 export const createDommagePayloadSchema = z.object({
-  id: z.string().optional(),
-  type: z.string().default('DommageMateriel'),
-  description: z.string().optional(),
-  niveauGravite: z.string().optional(),
-  valeurBien: z.number().optional(),
-  associeSinistre: z.string().optional(),
+  type_dommage: z.string().default('DommageMateriel'),
+  description: z.string(),
+  montant: z.number().default(0),
+  gravite: z.string().default('Faible'),
+  sinistre_id: z.string().optional(),
+  date: z.string().optional(),
+  lieu: z.string().optional(),
 });
 
 export const updateDommagePayloadSchema = z.object({
-  typeDommage: z.string().optional(),
+  type_dommage: z.string().optional(),
   description: z.string().optional(),
-  niveauGravite: z.string().optional(),
-  valeurBien: z.number().optional(),
-  associeSinistre: z.string().optional(),
+  montant: z.number().optional(),
+  gravite: z.string().optional(),
+  sinistre_id: z.string().nullable().optional(),
+  date: z.string().nullable().optional(),
+  lieu: z.string().nullable().optional(),
+});
+
+export const dommageMutationResponseSchema = z.object({
+  message: z.string(),
+  id: z.string().optional(),
 });

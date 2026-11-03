@@ -1,10 +1,12 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import React, { useState } from 'react';
+import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { listContrats } from '@/lib/services/contrats';
 import { listPersonnes } from '@/lib/services/personnes';
+import { listDommages } from '@/lib/services/dommages';
+import { listClauses } from '@/lib/services/clauses';
 import { getStats } from '@/lib/services/stats';
 import type { Personne } from '@/lib/types/personnes';
 import {
@@ -37,8 +39,16 @@ export function DashboardView({ onSelectTab, userRole }: DashboardViewProps) {
   const stats = statsQuery.data;
   const personnes = personnesQuery.data ?? [];
   const contrats = contratsQuery.data ?? [];
-  const [dommagesCount, setDommagesCount] = useState<number>(0);
-  const [clausesCount, setClausesCount] = useState<number>(0);
+  const dommagesQuery = useQuery({
+    queryKey: ['dommages'],
+    queryFn: listDommages,
+  });
+  const clausesQuery = useQuery({
+    queryKey: ['clauses'],
+    queryFn: listClauses,
+  });
+  const dommagesCount = dommagesQuery.data?.length ?? 0;
+  const clausesCount = clausesQuery.data?.length ?? 0;
 
   const totalPrimes = contrats.reduce(
     (acc, c) => acc + (Number.parseFloat(c.montantPrime ?? '') || 0),
@@ -84,14 +94,14 @@ export function DashboardView({ onSelectTab, userRole }: DashboardViewProps) {
             </Button>
             <Button
               onClick={() => onSelectTab('dommages')}
-              className="inline-flex items-center gap-2 rounded-xl bg-amber-500/20 px-4 py-2 text-xs font-semibold text-amber-200 backdrop-blur hover:bg-amber-500/30 transition-colors border border-amber-400/30"
+              className="inline-flex items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-500/20 px-4 py-2 text-xs font-semibold text-amber-200 backdrop-blur transition-colors hover:bg-amber-500/30"
             >
               <AlertTriangle className="h-4 w-4 text-amber-300" />
               <span>Dommages ({dommagesCount})</span>
             </Button>
             <Button
               onClick={() => onSelectTab('clauses')}
-              className="inline-flex items-center gap-2 rounded-xl bg-purple-500/20 px-4 py-2 text-xs font-semibold text-purple-200 backdrop-blur hover:bg-purple-500/30 transition-colors border border-purple-400/30"
+              className="inline-flex items-center gap-2 rounded-xl border border-purple-400/30 bg-purple-500/20 px-4 py-2 text-xs font-semibold text-purple-200 backdrop-blur transition-colors hover:bg-purple-500/30"
             >
               <Scale className="h-4 w-4 text-purple-300" />
               <span>Clauses ({clausesCount})</span>
@@ -375,7 +385,8 @@ export function DashboardView({ onSelectTab, userRole }: DashboardViewProps) {
                       </span>
                     </div>
                     <span className="text-muted-foreground mt-1 block">
-                      CIN : {p.cin || '08123456'} • Tél : {p.telephone || '20123456'}
+                      CIN : {p.cin || '08123456'} • Tél :{' '}
+                      {p.telephone || '20123456'}
                     </span>
                   </div>
                   <span className="text-muted-foreground font-mono text-xs">
