@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
+import { ModeToggle } from '@/components/mode-toggle';
 
 import React from 'react';
 import { cn } from '@/lib/utils';
@@ -71,6 +72,7 @@ export function LandingPage({ onLogin, onSignup }: LandingPageProps) {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <ModeToggle />
           <Button
             onClick={onLogin}
             variant="outline"

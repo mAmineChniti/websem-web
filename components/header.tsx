@@ -1,5 +1,6 @@
 'use client';
 import { Button } from '@/components/ui/button';
+import { ModeToggle } from '@/components/mode-toggle';
 
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -67,6 +68,7 @@ export function Header({
 
         {/* User profile / Auth buttons */}
         <div className="flex items-center gap-3">
+          <ModeToggle />
           {user && user.isConnected ? (
             <div className="border-border flex items-center gap-2 border-l pl-3">
               <div className="flex items-center gap-2.5">
