@@ -1,42 +1,70 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import type { CardStyle, NullableStringRecord } from '@/lib/types/ui';
+
+import React, { useState } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { askNlp } from '@/lib/services/nlp';
+import { getStats } from '@/lib/services/stats';
+import { cn } from '@/lib/utils';
+import type { NlpAskResult, NlpPipeline } from '@/lib/types/nlp';
 import {
-  Search, Sparkles, Send, Users, FileCheck2, User,
-  Phone, MapPin, CreditCard, Calendar, DollarSign,
-  Shield, RefreshCw, ChevronRight, CheckCircle2,
-  AlertCircle, Brain, ChevronDown, ChevronUp, Cpu,
-  GitBranch, Zap, Hash, Tag,
+  Search,
+  Sparkles,
+  Send,
+  Users,
+  FileCheck2,
+  User,
+  Phone,
+  MapPin,
+  CreditCard,
+  Calendar,
+  DollarSign,
+  Shield,
+  RefreshCw,
+  ChevronRight,
+  CheckCircle2,
+  AlertCircle,
+  AlertTriangle,
+  Brain,
+  ChevronDown,
+  ChevronUp,
+  Cpu,
+  GitBranch,
+  Hash,
+  Tag,
 } from 'lucide-react';
 
 const QUESTIONS_BY_ROLE: Record<string, string[]> = {
   Expert: [
-    "Quels sont les sinistres déclarés ?",
-    "Y a-t-il eu un incendie ?",
-    "Quels sont les dommages signalés ?",
-    "Quelles déclarations sont en cours ?",
-    "Qui sont les assurés concernés ?",
-    "Quelles garanties couvrent les sinistres ?",
+    'Quels sont les sinistres déclarés ?',
+    'Y a-t-il eu un incendie ?',
+    'Quels sont les dommages signalés ?',
+    'Quelles déclarations sont en cours ?',
+    'Qui sont les assurés concernés ?',
+    'Quelles garanties couvrent les sinistres ?',
   ],
   Agent: [
-    "Qui sont mes assurés ?",
-    "Quels contrats sont actifs ?",
-    "Quels sont les contrats propriétaire ?",
-    "Quels sont les contrats locataire ?",
-    "Montant des primes par contrat ?",
+    'Qui sont mes assurés ?',
+    'Quels contrats sont actifs ?',
+    'Quels sont les contrats propriétaire ?',
+    'Quels sont les contrats locataire ?',
+    'Montant des primes par contrat ?',
     "Combien d'assurés sont enregistrés ?",
-    "Quelles garanties sont disponibles ?",
+    'Quelles garanties sont disponibles ?',
   ],
   Admin: [
-    "Qui sont les assurés enregistrés ?",
-    "Quels sont les contrats propriétaire ?",
-    "Quels sont les contrats locataire ?",
+    'Qui sont les assurés enregistrés ?',
+    'Quels sont les contrats propriétaire ?',
+    'Quels sont les contrats locataire ?',
     "Liste des agents d'assurance ?",
-    "Liste des experts enregistrés ?",
-    "Montant des primes par contrat ?",
-    "Quels sont les sinistres déclarés ?",
-    "Liste des garanties disponibles ?",
-    "Quelles sont les déclarations en cours ?",
+    'Liste des experts enregistrés ?',
+    'Montant des primes par contrat ?',
+    'Quels sont les sinistres déclarés ?',
+    'Liste des garanties disponibles ?',
+    'Quelles sont les déclarations en cours ?',
     "Combien d'assurés sont enregistrés ?",
   ],
 };
@@ -45,89 +73,405 @@ function getPresetQuestions(role: string): string[] {
   return QUESTIONS_BY_ROLE[role] || QUESTIONS_BY_ROLE['Admin'];
 }
 
-function isPersonRow(row: any): boolean {
+function isPersonRow(row: NullableStringRecord): boolean {
   // Un résultat est une "personne" seulement s'il a un nom ou prénom rempli
   // ET qu'il n'a PAS de champs spécifiques à d'autres entités (sinistre, garantie, habitation, déclaration)
-  const hasName = !!(row.nom || row.prenom || row.nomAssure || row.prenomAssure);
+  const hasName = !!(
+    row.nom ||
+    row.prenom ||
+    row.nomAssure ||
+    row.prenomAssure
+  );
   if (!hasName) return false;
-  
+
   // Exclure si c'est clairement un sinistre, garantie, habitation ou déclaration
-  const isSinistre = row.sinistre || row.typeSinistre || row.dateSinistre || row.lieuSinistre || row.descriptionSinistre;
-  const isGarantie = row.garantie || row.typeGarantie || row.plafond || row.tauxFranchise;
+  const isSinistre =
+    row.sinistre ||
+    row.typeSinistre ||
+    row.dateSinistre ||
+    row.lieuSinistre ||
+    row.descriptionSinistre;
+  const isGarantie =
+    row.garantie || row.typeGarantie || row.plafond || row.tauxFranchise;
   const isHabitation = row.habitation || row.typeHabitation || row.superficie;
-  const isDeclaration = row.declaration || row.typeDeclaration || row.dateDeclaration || row.statutDeclaration;
-  const isIndemnisation = row.indemnisation || row.typeIndemnisation || row.montantIndemnisation;
-  if (isSinistre || isGarantie || isHabitation || isDeclaration || isIndemnisation) return false;
+  const isDeclaration =
+    row.declaration ||
+    row.typeDeclaration ||
+    row.dateDeclaration ||
+    row.statutDeclaration;
+  const isIndemnisation =
+    row.indemnisation || row.typeIndemnisation || row.montantIndemnisation;
+  if (
+    isSinistre ||
+    isGarantie ||
+    isHabitation ||
+    isDeclaration ||
+    isIndemnisation
+  )
+    return false;
 
   return true;
 }
 
-function isContratRow(row: any): boolean {
+function isContratRow(row: NullableStringRecord): boolean {
   const str = JSON.stringify(row).toLowerCase();
-  return (str.includes('contrat') || str.includes('prime') || str.includes('numero')) && !str.includes('cin') && !str.includes('telephone');
+  return (
+    (str.includes('contrat') ||
+      str.includes('prime') ||
+      str.includes('numero')) &&
+    !str.includes('cin') &&
+    !str.includes('telephone')
+  );
 }
 
-function PersonCard({ data }: { data: any }) {
-  const raw = String(data.assure || data.agent || data.expert || data.personne || data.type || '');
-  const kind = ['Assure', 'Agent', 'Expert', 'Beneficiaire'].find(k => raw.includes(k)) || 'Assure';
-  const map: any = {
-    Assure:       { label: 'Assuré',       color: 'blue' },
-    Agent:        { label: 'Agent',        color: 'violet' },
-    Expert:       { label: 'Expert',       color: 'amber' },
+function isGarantieRow(row: NullableStringRecord): boolean {
+  return !!(
+    row.garantie ||
+    row.typeGarantie ||
+    row.plafond ||
+    row.taux ||
+    row.texteClause ||
+    row.clause
+  );
+}
+
+function isSinistreRow(row: NullableStringRecord): boolean {
+  return !!(
+    row.sinistre ||
+    row.typeSinistre ||
+    row.dateSinistre ||
+    row.lieuSinistre ||
+    row.descriptionSinistre ||
+    (row.description && (row.assureNom || row.prenomAssure || row.statut))
+  );
+}
+
+function PersonCard({ data }: { data: NullableStringRecord }) {
+  const raw = String(
+    data.assure || data.agent || data.expert || data.personne || data.type || ''
+  );
+  const kind =
+    ['Assure', 'Agent', 'Expert', 'Beneficiaire'].find((k) =>
+      raw.includes(k)
+    ) || 'Assure';
+  const map: Record<string, CardStyle> = {
+    Assure: { label: 'Assuré', color: 'blue' },
+    Agent: { label: 'Agent', color: 'violet' },
+    Expert: { label: 'Expert', color: 'amber' },
     Beneficiaire: { label: 'Bénéficiaire', color: 'emerald' },
   };
   const m = map[kind];
-  const bgClass: any  = { blue: 'bg-blue-50 border-blue-200', violet: 'bg-violet-50 border-violet-200', amber: 'bg-amber-50 border-amber-200', emerald: 'bg-emerald-50 border-emerald-200' };
-  const bdgClass: any = { blue: 'bg-blue-100 text-blue-800', violet: 'bg-violet-100 text-violet-800', amber: 'bg-amber-100 text-amber-800', emerald: 'bg-emerald-100 text-emerald-800' };
+  const bgClass: Record<string, string> = {
+    blue: 'bg-muted border-border',
+    violet: 'bg-muted border-border',
+    amber: 'bg-muted border-border',
+    emerald: 'bg-muted border-border',
+  };
+  const bdgClass: Record<string, string> = {
+    blue: 'bg-muted text-primary',
+    violet: 'bg-muted text-primary',
+    amber: 'bg-muted text-primary',
+    emerald: 'bg-muted text-primary',
+  };
   const nom = [data.prenom, data.nom].filter(Boolean).join(' ') || '-';
   return (
-    <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${bgClass[m.color]}`}>
+    <div
+      className={cn(
+        'flex flex-col gap-2 rounded-2xl border p-4',
+        bgClass[m.color]
+      )}
+    >
       <div className="flex items-center justify-between">
-        <span className="font-bold text-sm text-zinc-900">{nom}</span>
-        <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${bdgClass[m.color]}`}>{m.label}</span>
+        <span className="text-foreground text-sm font-bold">{nom}</span>
+        <span
+          className={cn(
+            'rounded-full px-2.5 py-0.5 text-[10px] font-bold',
+            bdgClass[m.color]
+          )}
+        >
+          {m.label}
+        </span>
       </div>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-zinc-600 mt-1">
-        {data.cin && <span className="flex items-center gap-1.5"><CreditCard className="h-3 w-3 opacity-60" />CIN : <strong className="text-zinc-800">{data.cin}</strong></span>}
-        {data.telephone && <span className="flex items-center gap-1.5"><Phone className="h-3 w-3 opacity-60" />Tel : <strong className="text-zinc-800">{data.telephone}</strong></span>}
-        {data.adresse && <span className="col-span-2 flex items-center gap-1.5"><MapPin className="h-3 w-3 opacity-60" /><strong className="text-zinc-800">{data.adresse}</strong></span>}
+      <div className="text-muted-foreground mt-1 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+        {data.cin && (
+          <span className="flex items-center gap-1.5">
+            <CreditCard className="h-3 w-3 opacity-60" />
+            CIN : <strong className="text-foreground">{data.cin}</strong>
+          </span>
+        )}
+        {data.telephone && (
+          <span className="flex items-center gap-1.5">
+            <Phone className="h-3 w-3 opacity-60" />
+            Tel : <strong className="text-foreground">{data.telephone}</strong>
+          </span>
+        )}
+        {data.adresse && (
+          <span className="col-span-2 flex items-center gap-1.5">
+            <MapPin className="h-3 w-3 opacity-60" />
+            <strong className="text-foreground">{data.adresse}</strong>
+          </span>
+        )}
       </div>
     </div>
   );
 }
 
-function ContratCard({ data }: { data: any }) {
+function ContratCard({ data }: { data: NullableStringRecord }) {
   const raw = String(data.typeContrat || data.contrat || '');
-  const kind = ['Proprietaire', 'Locataire', 'Copropriete'].find(k => raw.includes(k)) || 'Proprietaire';
-  const map: any = {
+  const kind =
+    ['Proprietaire', 'Locataire', 'Copropriete'].find((k) => raw.includes(k)) ||
+    'Proprietaire';
+  const map: Record<string, CardStyle> = {
     Proprietaire: { label: 'Propriétaire', color: 'blue' },
-    Locataire:    { label: 'Locataire',    color: 'violet' },
-    Copropriete:  { label: 'Copropriété',  color: 'emerald' },
+    Locataire: { label: 'Locataire', color: 'violet' },
+    Copropriete: { label: 'Copropriété', color: 'emerald' },
   };
   const m = map[kind];
-  const bgClass: any  = { blue: 'bg-blue-50 border-blue-200', violet: 'bg-violet-50 border-violet-200', emerald: 'bg-emerald-50 border-emerald-200' };
-  const bdgClass: any = { blue: 'bg-blue-100 text-blue-800', violet: 'bg-violet-100 text-violet-800', emerald: 'bg-emerald-100 text-emerald-800' };
-  const numero = data.numeroContrat || String(data.contrat || '').split('#').pop() || '-';
-  const prime  = data.montantPrime ? `${data.montantPrime} DT` : null;
-  const assure = data.assure ? String(data.assure).split('#').pop() : null;
+  const bgClass: Record<string, string> = {
+    blue: 'bg-muted border-border',
+    violet: 'bg-muted border-border',
+    emerald: 'bg-muted border-border',
+  };
+  const bdgClass: Record<string, string> = {
+    blue: 'bg-muted text-primary',
+    violet: 'bg-muted text-primary',
+    emerald: 'bg-muted text-primary',
+  };
+  const numero =
+    data.numeroContrat ||
+    String(data.contrat || '')
+      .split('#')
+      .pop() ||
+    '-';
+  const prime = data.montantPrime ? `${data.montantPrime} DT` : undefined;
+  const assure = data.assure ? String(data.assure).split('#').pop() : undefined;
   return (
-    <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${bgClass[m.color]}`}>
+    <div
+      className={cn(
+        'flex flex-col gap-2 rounded-2xl border p-4',
+        bgClass[m.color]
+      )}
+    >
       <div className="flex items-center justify-between">
-        <span className="font-bold text-sm text-zinc-900">Contrat N° {numero}</span>
-        <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${bdgClass[m.color]}`}>{m.label}</span>
+        <span className="text-foreground text-sm font-bold">
+          Contrat N° {numero}
+        </span>
+        <span
+          className={cn(
+            'rounded-full px-2.5 py-0.5 text-[10px] font-bold',
+            bdgClass[m.color]
+          )}
+        >
+          {m.label}
+        </span>
       </div>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-zinc-600 mt-1">
-        {prime  && <span className="flex items-center gap-1.5"><DollarSign className="h-3 w-3 opacity-60" />Prime : <strong className="text-zinc-800">{prime}</strong></span>}
-        {assure && <span className="flex items-center gap-1.5"><User className="h-3 w-3 opacity-60" />Assuré : <strong className="text-zinc-800">{assure}</strong></span>}
-        {data.dateDebut && <span className="flex items-center gap-1.5"><Calendar className="h-3 w-3 opacity-60" />Début : <strong className="text-zinc-800">{data.dateDebut}</strong></span>}
-        {data.dateFin   && <span className="flex items-center gap-1.5"><Calendar className="h-3 w-3 opacity-60" />Fin : <strong className="text-zinc-800">{data.dateFin}</strong></span>}
+      <div className="text-muted-foreground mt-1 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+        {prime && (
+          <span className="flex items-center gap-1.5">
+            <DollarSign className="h-3 w-3 opacity-60" />
+            Prime : <strong className="text-foreground">{prime}</strong>
+          </span>
+        )}
+        {assure && (
+          <span className="flex items-center gap-1.5">
+            <User className="h-3 w-3 opacity-60" />
+            Assuré : <strong className="text-foreground">{assure}</strong>
+          </span>
+        )}
+        {data.dateDebut && (
+          <span className="flex items-center gap-1.5">
+            <Calendar className="h-3 w-3 opacity-60" />
+            Début :{' '}
+            <strong className="text-foreground">{data.dateDebut}</strong>
+          </span>
+        )}
+        {data.dateFin && (
+          <span className="flex items-center gap-1.5">
+            <Calendar className="h-3 w-3 opacity-60" />
+            Fin : <strong className="text-foreground">{data.dateFin}</strong>
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function GarantieCard({ data }: { data: NullableStringRecord }) {
+  const raw = String(data.typeGarantie || data.garantie || '');
+  const label = raw.split('#').pop() || 'Garantie';
+  const plafond = data.plafond ? `${data.plafond} DT` : undefined;
+  const taux = data.taux ? `${data.taux}%` : undefined;
+  const contratList = data.contrats
+    ? String(data.contrats)
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
+  const sinistreList = data.sinistres
+    ? String(data.sinistres)
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
+
+  return (
+    <div className="border-border bg-muted flex flex-col gap-2 rounded-2xl border p-4">
+      <div className="flex items-center justify-between">
+        <span className="text-foreground text-sm font-bold">
+          {data.garantie ? String(data.garantie).split('#').pop() : label}
+        </span>
+        <span className="bg-muted text-primary rounded-full px-2.5 py-0.5 text-[10px] font-bold">
+          {label}
+        </span>
+      </div>
+      <div className="text-muted-foreground mt-1 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+        {plafond && (
+          <span className="flex items-center gap-1.5">
+            <DollarSign className="h-3 w-3 opacity-60" />
+            Plafond : <strong className="text-foreground">{plafond}</strong>
+          </span>
+        )}
+        {taux && (
+          <span className="flex items-center gap-1.5">
+            <Shield className="h-3 w-3 opacity-60" />
+            Franchise : <strong className="text-foreground">{taux}</strong>
+          </span>
+        )}
+        {data.texteClause && (
+          <span className="col-span-2 flex items-center gap-1.5">
+            <FileCheck2 className="h-3 w-3 opacity-60" />
+            <strong className="text-foreground">{data.texteClause}</strong>
+          </span>
+        )}
+        {contratList.length > 0 && (
+          <span className="col-span-2 flex items-center gap-1.5">
+            <FileCheck2 className="h-3 w-3 opacity-60" />
+            Contrats :{' '}
+            <strong className="text-foreground">
+              {contratList.join(', ')}
+            </strong>
+          </span>
+        )}
+        {sinistreList.length > 0 && (
+          <span className="col-span-2 flex items-center gap-1.5">
+            <AlertTriangle className="h-3 w-3 opacity-60" />
+            Sinistres couverts :{' '}
+            <strong className="text-foreground">
+              {sinistreList.join(', ')}
+            </strong>
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SinistreCard({ data }: { data: NullableStringRecord }) {
+  const type =
+    String(data.typeSinistre || '')
+      .split('#')
+      .pop() || 'Sinistre';
+  const assure =
+    [data.prenomAssure, data.nomAssure].filter(Boolean).join(' ') ||
+    (data.assure ? String(data.assure).split('#').pop() : undefined);
+  const garantieList = data.garanties
+    ? String(data.garanties)
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
+  const expertList = data.experts
+    ? String(data.experts)
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
+
+  return (
+    <div className="border-border bg-muted flex flex-col gap-2 rounded-2xl border p-4">
+      <div className="flex items-center justify-between">
+        <span className="text-foreground text-sm font-bold">
+          {data.sinistre ? String(data.sinistre).split('#').pop() : type}
+        </span>
+        <span className="bg-muted text-primary rounded-full px-2.5 py-0.5 text-[10px] font-bold">
+          {type}
+        </span>
+      </div>
+      <div className="text-muted-foreground mt-1 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+        {data.dateSinistre && (
+          <span className="flex items-center gap-1.5">
+            <Calendar className="h-3 w-3 opacity-60" />
+            Date :{' '}
+            <strong className="text-foreground">{data.dateSinistre}</strong>
+          </span>
+        )}
+        {data.lieuSinistre && (
+          <span className="flex items-center gap-1.5">
+            <MapPin className="h-3 w-3 opacity-60" />
+            Lieu :{' '}
+            <strong className="text-foreground">{data.lieuSinistre}</strong>
+          </span>
+        )}
+        {assure && (
+          <span className="flex items-center gap-1.5">
+            <User className="h-3 w-3 opacity-60" />
+            Assuré : <strong className="text-foreground">{assure}</strong>
+          </span>
+        )}
+        {data.statut && (
+          <span className="flex items-center gap-1.5">
+            <Tag className="h-3 w-3 opacity-60" />
+            Statut : <strong className="text-foreground">{data.statut}</strong>
+          </span>
+        )}
+        {data.montantIndemnise && (
+          <span className="flex items-center gap-1.5">
+            <DollarSign className="h-3 w-3 opacity-60" />
+            Indemnité :{' '}
+            <strong className="text-foreground">
+              {data.montantIndemnise} DT
+            </strong>
+          </span>
+        )}
+        {(data.description || data.descriptionSinistre) && (
+          <span className="col-span-2 flex items-center gap-1.5">
+            <AlertTriangle className="h-3 w-3 opacity-60" />
+            <strong className="text-foreground">
+              {data.description || data.descriptionSinistre}
+            </strong>
+          </span>
+        )}
+        {garantieList.length > 0 && (
+          <span className="col-span-2 flex items-center gap-1.5">
+            <Shield className="h-3 w-3 opacity-60" />
+            Garanties :{' '}
+            <strong className="text-foreground">
+              {garantieList.join(', ')}
+            </strong>
+          </span>
+        )}
+        {expertList.length > 0 && (
+          <span className="col-span-2 flex items-center gap-1.5">
+            <User className="h-3 w-3 opacity-60" />
+            Experts :{' '}
+            <strong className="text-foreground">{expertList.join(', ')}</strong>
+          </span>
+        )}
       </div>
     </div>
   );
 }
 
 // ── Pipeline NLP Panel ────────────────────────────────────────────────────────
-function NLPPipelinePanel({ pipeline, intent, intentDescription, matchScore, sparqlQuery, elapsedMs }: {
-  pipeline: any;
+function NLPPipelinePanel({
+  pipeline,
+  intent,
+  intentDescription,
+  matchScore,
+  sparqlQuery,
+  elapsedMs,
+}: {
+  pipeline: NlpPipeline;
   intent: string;
   intentDescription: string;
   matchScore: number;
@@ -139,51 +483,78 @@ function NLPPipelinePanel({ pipeline, intent, intentDescription, matchScore, spa
   const step1 = pipeline?.step1_nltk;
   const step2 = pipeline?.step2_spacy;
   const step3 = pipeline?.step3_intent;
+  const step4 = pipeline?.step4_slots;
 
   return (
-    <div className="rounded-2xl border border-indigo-200 dark:border-indigo-900 bg-indigo-50/60 dark:bg-indigo-950/30 overflow-hidden">
-      <button
-        onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-indigo-100/60 dark:hover:bg-indigo-900/30 transition-colors"
+    <div className="border-border bg-muted dark:border-border dark:bg-muted overflow-hidden rounded-2xl border">
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={() => setOpen((v) => !v)}
+        className="flex h-auto w-full items-center justify-between rounded-none px-4 py-3"
       >
         <div className="flex items-center gap-2">
-          <Brain className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-          <span className="text-sm font-bold text-indigo-900 dark:text-indigo-200">
+          <Brain className="text-primary dark:text-primary h-4 w-4" />
+          <span className="text-primary dark:text-primary text-sm font-bold">
             Pipeline NLP/TALN — Détails du traitement
           </span>
           {elapsedMs && (
-            <span className="rounded-full bg-indigo-200 dark:bg-indigo-900 px-2 py-0.5 text-[10px] font-bold text-indigo-700 dark:text-indigo-300">
+            <span className="bg-muted text-primary dark:bg-muted dark:text-primary rounded-full px-2 py-0.5 text-[10px] font-bold">
               {elapsedMs} ms
             </span>
           )}
         </div>
-        {open ? <ChevronUp className="h-4 w-4 text-indigo-500" /> : <ChevronDown className="h-4 w-4 text-indigo-500" />}
-      </button>
+        {open ? (
+          <ChevronUp className="text-primary h-4 w-4" />
+        ) : (
+          <ChevronDown className="text-primary h-4 w-4" />
+        )}
+      </Button>
 
       {open && (
-        <div className="px-4 pb-4 space-y-3">
+        <div className="space-y-3 px-4 pb-4">
           {/* Step 1 — NLTK */}
           {step1 && (
-            <div className="rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-zinc-900 p-3">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-white text-[10px] font-bold shrink-0">1</span>
-                <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">NLTK — Tokenisation & Stemming</span>
-                <span className="rounded-full bg-indigo-100 dark:bg-indigo-950 px-2 py-0.5 text-[9px] font-mono text-indigo-600 dark:text-indigo-400">{step1.library}</span>
+            <div className="bg-card dark:bg-card border-border dark:border-border rounded-xl border p-3">
+              <div className="mb-2 flex items-center gap-2">
+                <span className="text-primary-foreground bg-muted flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold">
+                  1
+                </span>
+                <span className="text-foreground dark:text-foreground text-xs font-bold">
+                  NLTK — Tokenisation & Stemming
+                </span>
+                <span className="bg-muted text-primary dark:bg-muted dark:text-primary rounded-full px-2 py-0.5 font-mono text-[9px]">
+                  {step1.library}
+                </span>
               </div>
               <div className="space-y-1.5 text-[11px]">
                 <div>
-                  <span className="text-zinc-500 font-semibold">Tokens filtrés :</span>
-                  <div className="flex flex-wrap gap-1 mt-1">
+                  <span className="text-muted-foreground font-semibold">
+                    Tokens filtrés :
+                  </span>
+                  <div className="mt-1 flex flex-wrap gap-1">
                     {(step1.tokens || []).map((t: string, i: number) => (
-                      <span key={i} className="rounded-lg bg-indigo-100 dark:bg-indigo-900 px-1.5 py-0.5 font-mono text-indigo-800 dark:text-indigo-300">{t}</span>
+                      <span
+                        key={i}
+                        className="bg-muted text-primary dark:bg-muted dark:text-primary rounded-lg px-1.5 py-0.5 font-mono"
+                      >
+                        {t}
+                      </span>
                     ))}
                   </div>
                 </div>
                 <div>
-                  <span className="text-zinc-500 font-semibold">Stems (SnowballStemmer fr) :</span>
-                  <div className="flex flex-wrap gap-1 mt-1">
+                  <span className="text-muted-foreground font-semibold">
+                    Stems (SnowballStemmer fr) :
+                  </span>
+                  <div className="mt-1 flex flex-wrap gap-1">
                     {(step1.stems || []).map((s: string, i: number) => (
-                      <span key={i} className="rounded-lg bg-amber-100 dark:bg-amber-900 px-1.5 py-0.5 font-mono text-amber-800 dark:text-amber-300">{s}</span>
+                      <span
+                        key={i}
+                        className="bg-muted text-primary dark:bg-muted dark:text-primary rounded-lg px-1.5 py-0.5 font-mono"
+                      >
+                        {s}
+                      </span>
                     ))}
                   </div>
                 </div>
@@ -193,15 +564,22 @@ function NLPPipelinePanel({ pipeline, intent, intentDescription, matchScore, spa
 
           {/* Step 2 — spaCy */}
           {step2 && (
-            <div className="rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-zinc-900 p-3">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-600 text-white text-[10px] font-bold shrink-0">2</span>
-                <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">spaCy — NER & POS Tagging</span>
-                <span className={`rounded-full px-2 py-0.5 text-[9px] font-mono font-bold ${
-                  step2.available
-                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
-                    : 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400'
-                }`}>
+            <div className="bg-card dark:bg-card border-border dark:border-border rounded-xl border p-3">
+              <div className="mb-2 flex items-center gap-2">
+                <span className="text-primary-foreground bg-muted flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold">
+                  2
+                </span>
+                <span className="text-foreground dark:text-foreground text-xs font-bold">
+                  spaCy — NER & POS Tagging
+                </span>
+                <span
+                  className={cn(
+                    'rounded-full px-2 py-0.5 font-mono text-[9px] font-bold',
+                    step2.available
+                      ? 'bg-muted text-primary dark:bg-muted dark:text-primary'
+                      : 'bg-muted text-destructive dark:bg-muted dark:text-destructive'
+                  )}
+                >
                   {step2.available ? '✓ fr_core_news_sm' : '⚠ non disponible'}
                 </span>
               </div>
@@ -209,57 +587,158 @@ function NLPPipelinePanel({ pipeline, intent, intentDescription, matchScore, spa
                 <div className="space-y-1.5 text-[11px]">
                   {step2.entities && step2.entities.length > 0 ? (
                     <div>
-                      <span className="text-zinc-500 font-semibold">Entités détectées (NER) :</span>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {step2.entities.map((e: any, i: number) => (
-                          <span key={i} className="rounded-lg bg-violet-100 dark:bg-violet-950 px-1.5 py-0.5 font-mono text-violet-800 dark:text-violet-300">
-                            {e.text} <span className="text-[9px] opacity-60">({e.label})</span>
+                      <span className="text-muted-foreground font-semibold">
+                        Entités détectées (NER) :
+                      </span>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {step2.entities.map((e, i) => (
+                          <span
+                            key={i}
+                            className="bg-muted text-primary dark:bg-muted dark:text-primary rounded-lg px-1.5 py-0.5 font-mono"
+                          >
+                            {e.text}{' '}
+                            <span className="text-[9px] opacity-60">
+                              ({e.label})
+                            </span>
                           </span>
                         ))}
                       </div>
                     </div>
                   ) : (
-                    <p className="text-zinc-400 italic">Aucune entité nommée détectée dans cette question.</p>
+                    <p className="text-muted-foreground italic">
+                      Aucune entité nommée détectée dans cette question.
+                    </p>
                   )}
                   {step2.noun_chunks && step2.noun_chunks.length > 0 && (
                     <div>
-                      <span className="text-zinc-500 font-semibold">Groupes nominaux :</span>
-                      <div className="flex flex-wrap gap-1 mt-1">
+                      <span className="text-muted-foreground font-semibold">
+                        Groupes nominaux :
+                      </span>
+                      <div className="mt-1 flex flex-wrap gap-1">
                         {step2.noun_chunks.map((c: string, i: number) => (
-                          <span key={i} className="rounded-lg bg-cyan-100 dark:bg-cyan-950 px-1.5 py-0.5 font-mono text-cyan-800 dark:text-cyan-300">{c}</span>
+                          <span
+                            key={i}
+                            className="bg-muted text-primary dark:bg-muted dark:text-primary rounded-lg px-1.5 py-0.5 font-mono"
+                          >
+                            {c}
+                          </span>
                         ))}
                       </div>
                     </div>
                   )}
                 </div>
               ) : (
-                <p className="text-[11px] text-zinc-400">spaCy non disponible — utilisez NLTK uniquement.</p>
+                <p className="text-muted-foreground text-[11px]">
+                  spaCy non disponible — utilisez NLTK uniquement.
+                </p>
               )}
             </div>
           )}
 
           {/* Step 3 — Intent */}
           {step3 && (
-            <div className="rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-zinc-900 p-3">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-white text-[10px] font-bold shrink-0">3</span>
-                <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">Intent Matcher → SPARQL</span>
+            <div className="bg-card dark:bg-card border-border dark:border-border rounded-xl border p-3">
+              <div className="mb-2 flex items-center gap-2">
+                <span className="text-primary-foreground bg-muted flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold">
+                  3
+                </span>
+                <span className="text-foreground dark:text-foreground text-xs font-bold">
+                  Intent Matcher → SPARQL
+                </span>
               </div>
-              <div className="text-[11px] space-y-1">
-                <p><span className="text-zinc-500 font-semibold">Intention détectée :</span> <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400">{intent}</span></p>
-                <p><span className="text-zinc-500 font-semibold">Description :</span> {intentDescription}</p>
-                <p><span className="text-zinc-500 font-semibold">Score de correspondance :</span>{' '}
-                  <span className="font-bold text-indigo-700 dark:text-indigo-400">{matchScore}</span>
-                  {' '}<span className="text-zinc-400">/ {step3.total_intents_available} intentions disponibles</span>
+              <div className="space-y-1 text-[11px]">
+                <p>
+                  <span className="text-muted-foreground font-semibold">
+                    Intention détectée :
+                  </span>{' '}
+                  <span className="text-primary dark:text-primary font-mono font-bold">
+                    {intent}
+                  </span>
+                </p>
+                <p>
+                  <span className="text-muted-foreground font-semibold">
+                    Description :
+                  </span>{' '}
+                  {intentDescription}
+                </p>
+                <p>
+                  <span className="text-muted-foreground font-semibold">
+                    Score de correspondance :
+                  </span>{' '}
+                  <span className="text-primary dark:text-primary font-bold">
+                    {matchScore}
+                  </span>{' '}
+                  <span className="text-muted-foreground">
+                    / {step3.total_intents_available} intentions disponibles
+                  </span>
                 </p>
               </div>
             </div>
           )}
 
+          {/* Step 4 — Slots */}
+          {step4 && (
+            <div className="bg-card dark:bg-card border-border dark:border-border rounded-xl border p-3">
+              <div className="mb-2 flex items-center gap-2">
+                <span className="text-primary-foreground bg-muted flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold">
+                  4
+                </span>
+                <span className="text-foreground dark:text-foreground text-xs font-bold">
+                  Slots & Filtres SPARQL
+                </span>
+                <span className="bg-muted text-primary dark:bg-muted dark:text-primary rounded-full px-2 py-0.5 font-mono text-[9px]">
+                  {step4.library}
+                </span>
+              </div>
+              <div className="space-y-1.5 text-[11px]">
+                {Object.keys(step4.slots || {}).length > 0 ? (
+                  <div>
+                    <span className="text-muted-foreground font-semibold">
+                      Paramètres extraits :
+                    </span>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {Object.entries(step4.slots || {}).map(([k, v], i) => (
+                        <span
+                          key={i}
+                          className="bg-muted text-primary dark:bg-muted dark:text-primary rounded-lg px-1.5 py-0.5 font-mono"
+                        >
+                          {k}: {String(v)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground italic">
+                    Aucun filtre de slot appliqué.
+                  </p>
+                )}
+                {step4.applied_filters && step4.applied_filters.length > 0 && (
+                  <div>
+                    <span className="text-muted-foreground font-semibold">
+                      Filtres appliqués :
+                    </span>
+                    <div className="mt-1 space-y-1">
+                      {step4.applied_filters.map((f: string, i: number) => (
+                        <pre
+                          key={i}
+                          className="text-primary overflow-x-auto font-mono text-[10px] leading-relaxed whitespace-pre-wrap"
+                        >
+                          {f}
+                        </pre>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* SPARQL générée */}
-          <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-950 p-3">
-            <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">Requête SPARQL générée</p>
-            <pre className="text-[11px] text-emerald-300 font-mono overflow-x-auto whitespace-pre-wrap leading-relaxed">
+          <div className="border-border bg-background dark:border-border rounded-xl border p-3">
+            <p className="text-muted-foreground mb-2 text-[10px] font-bold tracking-wider uppercase">
+              Requête SPARQL générée
+            </p>
+            <pre className="text-primary overflow-x-auto font-mono text-[11px] leading-relaxed whitespace-pre-wrap">
               {sparqlQuery}
             </pre>
           </div>
@@ -271,60 +750,87 @@ function NLPPipelinePanel({ pipeline, intent, intentDescription, matchScore, spa
 
 export function SemanticWebView({ userRole = 'Admin' }: { userRole?: string }) {
   const [question, setQuestion] = useState('');
-  const [loading, setLoading]   = useState(false);
-  const [result, setResult]     = useState<any>(null);
-  const [error, setError]       = useState<string | null>(null);
-  const [stats, setStats]       = useState<any>(null);
-
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
-  useEffect(() => {
-    fetch(`${apiUrl}/api/ontology/stats`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => d && setStats(d))
-      .catch(() => {});
-  }, []);
+  const [result, setResult] = useState<NlpAskResult>();
+  const [error, setError] = useState<string | undefined>();
+  const statsQuery = useQuery({ queryKey: ['stats'], queryFn: getStats });
+  const askMutation = useMutation({ mutationFn: askNlp });
 
   const askQuestion = async (q: string) => {
     if (!q.trim()) return;
     setQuestion(q);
-    setLoading(true);
-    setError(null);
-    setResult(null);
+    setError(undefined);
+    setResult(undefined);
     try {
-      const res = await fetch(`${apiUrl}/api/ontology/nlp/ask`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: q }),
-      });
-      if (!res.ok) throw new Error(`Erreur serveur (${res.status})`);
-      setResult(await res.json());
+      setResult(await askMutation.mutateAsync({ question: q }));
     } catch {
-      setError('Impossible de joindre le serveur. Vérifiez que le backend est démarré.');
-    } finally {
-      setLoading(false);
+      setError(
+        'Impossible de joindre le serveur. Vérifiez que le backend est démarré.'
+      );
     }
   };
+  const loading = askMutation.isPending;
+  const stats = statsQuery.data;
 
-  const rows: any[]  = (result?.results || []).filter((r: any) => {
-    // Filtrer les résultats vides (individus Protégé sans données)
-    const vals = Object.values(r).filter(v => v != null && v !== '');
-    // Garder seulement si au moins un champ utile est rempli (nom, prenom, cin, numeroContrat, etc.)
-    const hasName = r.nom || r.prenom || r.nomAssure || r.prenomAssure;
-    const hasId = r.cin || r.numeroContrat || r.telephone;
-    const hasData = r.montantPrime || r.dateSinistre || r.dateDebut || r.plafond || r.montant || r.description || r.descriptionSinistre || r.lieuSinistre || r.statut || r.dateDeclaration || r.adresse || r.superficie || r.valeur || r.taux;
-    return hasName || hasId || hasData || vals.length > 3;
-  });
-  const personRows   = rows.filter((r: any) => isPersonRow(r));
-  const contratRows  = rows.filter((r: any) => isContratRow(r));
-  const otherRows    = rows.filter((r: any) => !isPersonRow(r) && !isContratRow(r));
+  const rows: NullableStringRecord[] = (result?.results || []).filter(
+    (r: NullableStringRecord) => {
+      // Filtrer les résultats vides (individus Protégé sans données)
+      const vals = Object.values(r).filter((v) => v != undefined && v !== '');
+      // Garder seulement si au moins un champ utile est rempli (nom, prenom, cin, numeroContrat, etc.)
+      const hasName = r.nom || r.prenom || r.nomAssure || r.prenomAssure;
+      const hasId = r.cin || r.numeroContrat || r.telephone;
+      const hasData =
+        r.montantPrime ||
+        r.dateSinistre ||
+        r.dateDebut ||
+        r.plafond ||
+        r.montant ||
+        r.description ||
+        r.descriptionSinistre ||
+        r.lieuSinistre ||
+        r.statut ||
+        r.dateDeclaration ||
+        r.adresse ||
+        r.superficie ||
+        r.valeur ||
+        r.taux;
+      return hasName || hasId || hasData || vals.length > 3;
+    }
+  );
+  const personRows = rows.filter((r: NullableStringRecord) => isPersonRow(r));
+  const contratRows = rows.filter((r: NullableStringRecord) => isContratRow(r));
+  const garantieRows = rows.filter(
+    (r: NullableStringRecord) =>
+      isGarantieRow(r) &&
+      !isPersonRow(r) &&
+      !isContratRow(r) &&
+      !isSinistreRow(r)
+  );
+  const sinistreRows = rows.filter(
+    (r: NullableStringRecord) =>
+      isSinistreRow(r) &&
+      !isPersonRow(r) &&
+      !isContratRow(r) &&
+      !isGarantieRow(r)
+  );
+  const otherRows = rows.filter(
+    (r: NullableStringRecord) =>
+      !isPersonRow(r) &&
+      !isContratRow(r) &&
+      !isGarantieRow(r) &&
+      !isSinistreRow(r)
+  );
 
   if (userRole === 'Assure') {
     return (
-      <div className="rounded-3xl border border-zinc-200 bg-white p-10 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-        <Shield className="mx-auto h-12 w-12 text-zinc-300 dark:text-zinc-700 mb-4" />
-        <h2 className="text-lg font-bold text-zinc-700 dark:text-zinc-300 mb-2">Accès non autorisé</h2>
-        <p className="text-sm text-zinc-500">La recherche intelligente est réservée aux agents, experts et administrateurs.</p>
+      <div className="border-border bg-card dark:border-border dark:bg-card rounded-3xl border p-10 text-center shadow-sm">
+        <Shield className="text-muted-foreground dark:text-foreground mx-auto mb-4 h-12 w-12" />
+        <h2 className="text-foreground dark:text-muted-foreground mb-2 text-lg font-bold">
+          Accès non autorisé
+        </h2>
+        <p className="text-muted-foreground text-sm">
+          La recherche intelligente est réservée aux agents, experts et
+          administrateurs.
+        </p>
       </div>
     );
   }
@@ -332,82 +838,120 @@ export function SemanticWebView({ userRole = 'Admin' }: { userRole?: string }) {
   return (
     <div className="space-y-6">
       {/* Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-900 via-indigo-950 to-slate-900 p-6 sm:p-8 text-white shadow-xl">
+      <div className="from-primary via-primary to-card text-primary-foreground relative overflow-hidden rounded-3xl bg-gradient-to-br p-6 shadow-xl sm:p-8">
         <div className="relative z-10 max-w-2xl space-y-3">
-          <div className="inline-flex items-center gap-2 rounded-full bg-blue-500/20 px-3 py-1 text-xs font-semibold text-blue-200 border border-blue-400/30">
-            <Sparkles className="h-3.5 w-3.5 text-blue-300" />
-            <span>{userRole === 'Admin' ? 'Moteur NLP/TALN → SPARQL' : 'Recherche Intelligente'}</span>
+          <div className="border-border bg-muted text-primary inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold">
+            <Sparkles className="text-primary h-3.5 w-3.5" />
+            <span>
+              {userRole === 'Admin'
+                ? 'Moteur NLP/TALN → SPARQL'
+                : 'Recherche Intelligente'}
+            </span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-serif text-white">
+          <h1 className="text-primary-foreground font-serif text-2xl font-extrabold tracking-tight sm:text-3xl">
             {userRole === 'Expert'
               ? 'Recherche Sinistres & Expertises'
               : userRole === 'Agent'
                 ? 'Recherche Clients & Contrats'
                 : 'Recherche en Langage Naturel'}
           </h1>
-          <p className="text-xs sm:text-sm text-blue-100/80 leading-relaxed">
-            {userRole === 'Admin'
-              ? <>
-                  Posez votre question en français. Le pipeline{' '}
-                  <strong className="text-white">NLTK + spaCy</strong>{' '}
-                  la traduit automatiquement en requête{' '}
-                  <strong className="text-white">SPARQL</strong> exécutable sur l'ontologie OWL.
-                </>
-              : userRole === 'Expert'
-                ? 'Posez vos questions sur les sinistres, les déclarations et les assurés concernés. Le système analyse votre question et recherche dans la base de connaissances.'
-                : 'Posez vos questions sur vos clients, contrats et garanties. Le système analyse votre question et recherche dans la base de connaissances.'
-            }
+          <p className="text-primary text-xs leading-relaxed sm:text-sm">
+            {userRole === 'Admin' ? (
+              <>
+                Posez votre question en français. Le pipeline{' '}
+                <strong className="text-primary-foreground">
+                  NLTK + spaCy
+                </strong>{' '}
+                la traduit automatiquement en requête{' '}
+                <strong className="text-primary-foreground">SPARQL</strong>{' '}
+                exécutable sur l&apos;ontologie OWL.
+              </>
+            ) : userRole === 'Expert' ? (
+              'Posez vos questions sur les sinistres, les déclarations et les assurés concernés. Le système analyse votre question et recherche dans la base de connaissances.'
+            ) : (
+              'Posez vos questions sur vos clients, contrats et garanties. Le système analyse votre question et recherche dans la base de connaissances.'
+            )}
           </p>
 
           {/* NLP Libraries badges — Admin only */}
           {userRole === 'Admin' && (
             <div className="flex flex-wrap gap-2 pt-1">
               {[
-                { icon: <Cpu className="h-3 w-3" />, label: 'NLTK — Tokenisation + Stemming' },
-                { icon: <Brain className="h-3 w-3" />, label: 'spaCy fr — NER + POS' },
-                { icon: <GitBranch className="h-3 w-3" />, label: 'Intent Matcher' },
-                ...(stats ? [
-                  { icon: <Hash className="h-3 w-3" />, label: `${stats.total_triples ?? '-'} triplets RDF` },
-                  { icon: <Tag className="h-3 w-3" />, label: `${stats.personnes_count ?? '-'} personnes` },
-                ] : []),
+                {
+                  icon: <Cpu className="h-3 w-3" />,
+                  label: 'NLTK — Tokenisation + Stemming',
+                },
+                {
+                  icon: <Brain className="h-3 w-3" />,
+                  label: 'spaCy fr — NER + POS',
+                },
+                {
+                  icon: <GitBranch className="h-3 w-3" />,
+                  label: 'Intent Matcher',
+                },
+                ...(stats
+                  ? [
+                      {
+                        icon: <Hash className="h-3 w-3" />,
+                        label: `${stats.total_triples ?? '-'} triplets RDF`,
+                      },
+                      {
+                        icon: <Tag className="h-3 w-3" />,
+                        label: `${stats.personnes_count ?? '-'} personnes`,
+                      },
+                    ]
+                  : []),
               ].map((b, i) => (
-                <span key={i} className="inline-flex items-center gap-1.5 rounded-full border border-blue-400/30 bg-blue-500/20 px-2.5 py-1 text-[11px] font-semibold text-white">
-                  {b.icon}{b.label}
+                <span
+                  key={i}
+                  className="text-primary-foreground border-border bg-muted inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold"
+                >
+                  {b.icon}
+                  {b.label}
                 </span>
               ))}
             </div>
           )}
         </div>
-        <div className="absolute right-6 bottom-4 hidden lg:block opacity-5">
-          <Search className="h-52 w-52 text-white" />
+        <div className="absolute right-6 bottom-4 hidden opacity-5 lg:block">
+          <Search className="text-primary-foreground h-52 w-52" />
         </div>
       </div>
 
       {/* Search card */}
-      <div className="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 space-y-4">
+      <div className="border-border bg-card dark:border-border dark:bg-card space-y-4 rounded-3xl border p-5 shadow-sm">
         <div>
-          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest block mb-2">
+          <span className="text-muted-foreground mb-2 block text-[10px] font-bold tracking-widest uppercase">
             Questions fréquentes (cliquez pour tester)
           </span>
           <div className="flex flex-wrap gap-2">
             {getPresetQuestions(userRole).map((q, i) => (
-              <button
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
                 key={i}
                 onClick={() => askQuestion(q)}
-                className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-800 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 transition-all"
+                className="rounded-xl px-3 py-1.5 text-xs font-medium"
               >
                 {q}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
-        <form onSubmit={e => { e.preventDefault(); askQuestion(question); }} className="flex items-center gap-2">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            askQuestion(question);
+          }}
+          className="flex items-center gap-2"
+        >
           <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-            <input
+            <Search className="text-muted-foreground absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2" />
+            <Input
               type="text"
               value={question}
-              onChange={e => setQuestion(e.target.value)}
+              onChange={(e) => setQuestion(e.target.value)}
               placeholder={
                 userRole === 'Expert'
                   ? 'Ex : Quels sinistres ont été déclarés ? | Y a-t-il eu un incendie ?'
@@ -415,23 +959,29 @@ export function SemanticWebView({ userRole = 'Admin' }: { userRole?: string }) {
                     ? 'Ex : Qui sont mes assurés ? | Quels contrats sont actifs ?'
                     : 'Ex : Qui sont les assurés enregistrés ? | Quels sinistres ont été déclarés ?'
               }
-              className="w-full rounded-2xl border border-zinc-300 bg-white pl-10 pr-4 py-3 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 shadow-inner"
+              className="w-full rounded-2xl py-3 pr-4 pl-10 text-sm shadow-inner"
             />
           </div>
-          <button
+          <Button
             type="submit"
             disabled={loading}
-            className="flex items-center gap-2 rounded-2xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-2 rounded-2xl px-6 py-3 text-sm font-bold shadow"
           >
-            {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            <span className="hidden sm:block">{loading ? 'Traitement NLP...' : 'Rechercher'}</span>
-          </button>
+            {loading ? (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+            <span className="hidden sm:block">
+              {loading ? 'Traitement NLP...' : 'Rechercher'}
+            </span>
+          </Button>
         </form>
       </div>
 
       {/* Error */}
       {error && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-800 flex items-center gap-3">
+        <div className="border-border bg-muted text-destructive flex items-center gap-3 rounded-2xl border px-5 py-4 text-sm">
           <AlertCircle className="h-5 w-5 shrink-0" />
           <span>{error}</span>
         </div>
@@ -440,7 +990,12 @@ export function SemanticWebView({ userRole = 'Admin' }: { userRole?: string }) {
       {/* Loading skeleton */}
       {loading && (
         <div className="space-y-3">
-          {[1, 2, 3].map(i => <div key={i} className="rounded-2xl border border-zinc-100 bg-zinc-50 h-20 animate-pulse dark:border-zinc-800 dark:bg-zinc-800/40" />)}
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="border-border bg-muted dark:border-border dark:bg-card/40 h-20 animate-pulse rounded-2xl border"
+            />
+          ))}
         </div>
       )}
 
@@ -448,16 +1003,19 @@ export function SemanticWebView({ userRole = 'Admin' }: { userRole?: string }) {
       {result && !loading && (
         <div className="space-y-5">
           {/* Header résultats */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-              <span className="font-bold text-emerald-800">
-                {rows.length} résultat{rows.length > 1 ? 's' : ''} trouvé{rows.length > 1 ? 's' : ''}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="border-border bg-muted flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm">
+              <CheckCircle2 className="text-primary h-4 w-4" />
+              <span className="text-primary font-bold">
+                {rows.length} résultat{rows.length > 1 ? 's' : ''} trouvé
+                {rows.length > 1 ? 's' : ''}
               </span>
             </div>
-            <span className="text-xs text-zinc-400">Pour : <em>{question}</em></span>
+            <span className="text-muted-foreground text-xs">
+              Pour : <em>{question}</em>
+            </span>
             {userRole === 'Admin' && (
-              <span className="text-xs font-mono bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded-lg text-zinc-600 dark:text-zinc-400">
+              <span className="bg-muted text-muted-foreground dark:bg-card dark:text-muted-foreground rounded-lg px-2 py-1 font-mono text-xs">
                 Intention : <strong>{result.intent}</strong>
               </span>
             )}
@@ -467,10 +1025,10 @@ export function SemanticWebView({ userRole = 'Admin' }: { userRole?: string }) {
           {userRole === 'Admin' && result.pipeline && (
             <NLPPipelinePanel
               pipeline={result.pipeline}
-              intent={result.intent}
+              intent={result.intent || ''}
               intentDescription={result.intent_description || ''}
               matchScore={result.match_score || 0}
-              sparqlQuery={result.sparql_query}
+              sparqlQuery={result.sparql_query || ''}
               elapsedMs={result.elapsed_ms}
             />
           )}
@@ -479,11 +1037,15 @@ export function SemanticWebView({ userRole = 'Admin' }: { userRole?: string }) {
           {personRows.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-blue-600" />
-                <h2 className="text-sm font-bold text-zinc-800 dark:text-zinc-200">Personnes ({personRows.length})</h2>
+                <Users className="text-primary h-4 w-4" />
+                <h2 className="text-foreground dark:text-foreground text-sm font-bold">
+                  Personnes ({personRows.length})
+                </h2>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {personRows.map((row: any, i: number) => <PersonCard key={i} data={row} />)}
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                {personRows.map((row: NullableStringRecord, i: number) => (
+                  <PersonCard key={i} data={row} />
+                ))}
               </div>
             </div>
           )}
@@ -491,11 +1053,47 @@ export function SemanticWebView({ userRole = 'Admin' }: { userRole?: string }) {
           {contratRows.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <FileCheck2 className="h-4 w-4 text-emerald-600" />
-                <h2 className="text-sm font-bold text-zinc-800 dark:text-zinc-200">Contrats ({contratRows.length})</h2>
+                <FileCheck2 className="text-primary h-4 w-4" />
+                <h2 className="text-foreground dark:text-foreground text-sm font-bold">
+                  Contrats ({contratRows.length})
+                </h2>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {contratRows.map((row: any, i: number) => <ContratCard key={i} data={row} />)}
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                {contratRows.map((row: NullableStringRecord, i: number) => (
+                  <ContratCard key={i} data={row} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {garantieRows.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Shield className="text-primary h-4 w-4" />
+                <h2 className="text-foreground dark:text-foreground text-sm font-bold">
+                  Garanties ({garantieRows.length})
+                </h2>
+              </div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                {garantieRows.map((row: NullableStringRecord, i: number) => (
+                  <GarantieCard key={i} data={row} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {sinistreRows.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="text-primary h-4 w-4" />
+                <h2 className="text-foreground dark:text-foreground text-sm font-bold">
+                  Sinistres ({sinistreRows.length})
+                </h2>
+              </div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                {sinistreRows.map((row: NullableStringRecord, i: number) => (
+                  <SinistreCard key={i} data={row} />
+                ))}
               </div>
             </div>
           )}
@@ -504,33 +1102,59 @@ export function SemanticWebView({ userRole = 'Admin' }: { userRole?: string }) {
           {otherRows.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <Search className="h-4 w-4 text-violet-600" />
-                <h2 className="text-sm font-bold text-zinc-800 dark:text-zinc-200">Résultats ({otherRows.length})</h2>
+                <Search className="text-primary h-4 w-4" />
+                <h2 className="text-foreground dark:text-foreground text-sm font-bold">
+                  Résultats ({otherRows.length})
+                </h2>
               </div>
-              <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+              <div className="border-border dark:border-border overflow-hidden rounded-2xl border">
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
-                    <thead className="bg-zinc-50 dark:bg-zinc-800">
+                    <thead className="bg-muted dark:bg-card">
                       <tr>
                         {(result.vars || [])
-                          .filter((v: string) => otherRows.some((r: any) => r[v] != null))
+                          .filter((v: string) =>
+                            otherRows.some(
+                              (r: NullableStringRecord) => r[v] != undefined
+                            )
+                          )
                           .map((v: string) => (
-                          <th key={v} className="px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                            {v.replace(/([A-Z])/g, ' $1').replace(/^./, (s: string) => s.toUpperCase())}
-                          </th>
-                        ))}
+                            <th
+                              key={v}
+                              className="text-muted-foreground px-4 py-3 text-left text-[10px] font-bold tracking-wider uppercase"
+                            >
+                              {v
+                                .replaceAll(/([A-Z])/g, ' $1')
+                                .replace(/^./, (s: string) => s.toUpperCase())}
+                            </th>
+                          ))}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                      {otherRows.map((row: any, i: number) => (
-                        <tr key={i} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors">
+                    <tbody className="divide-border dark:divide-border divide-y">
+                      {otherRows.map((row: NullableStringRecord, i: number) => (
+                        <tr
+                          key={i}
+                          className="hover:bg-muted transition-colors"
+                        >
                           {(result.vars || [])
-                            .filter((v: string) => otherRows.some((r: any) => r[v] != null))
+                            .filter((v: string) =>
+                              otherRows.some(
+                                (r: NullableStringRecord) => r[v] != undefined
+                              )
+                            )
                             .map((v: string) => (
-                            <td key={v} className="px-4 py-3 text-zinc-700 dark:text-zinc-300 max-w-[220px] truncate" title={row[v] || ''}>
-                              {row[v] ?? <span className="text-zinc-400 italic">—</span>}
-                            </td>
-                          ))}
+                              <td
+                                key={v}
+                                className="text-foreground dark:text-muted-foreground max-w-[220px] truncate px-4 py-3"
+                                title={row[v] || ''}
+                              >
+                                {row[v] ?? (
+                                  <span className="text-muted-foreground italic">
+                                    —
+                                  </span>
+                                )}
+                              </td>
+                            ))}
                         </tr>
                       ))}
                     </tbody>
@@ -541,8 +1165,8 @@ export function SemanticWebView({ userRole = 'Admin' }: { userRole?: string }) {
           )}
 
           {rows.length === 0 && (
-            <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-8 text-center text-sm text-zinc-500">
-              Aucun résultat pour cette question dans l'ontologie.
+            <div className="border-border bg-muted text-muted-foreground rounded-2xl border p-8 text-center text-sm">
+              Aucun résultat pour cette question dans l&apos;ontologie.
             </div>
           )}
         </div>
@@ -550,27 +1174,34 @@ export function SemanticWebView({ userRole = 'Admin' }: { userRole?: string }) {
 
       {/* Empty state */}
       {!result && !loading && !error && (
-        <div className="rounded-3xl border border-dashed border-zinc-200 bg-zinc-50/50 p-10 text-center dark:border-zinc-800 dark:bg-zinc-900/40">
-          <Search className="mx-auto h-10 w-10 text-zinc-300 mb-3" />
-          <p className="text-sm font-semibold text-zinc-500">Posez une question ci-dessus pour démarrer</p>
-          <p className="text-xs text-zinc-400 mt-1">
+        <div className="border-border bg-muted/50 dark:border-border dark:bg-card/40 rounded-3xl border border-dashed p-10 text-center">
+          <Search className="text-muted-foreground mx-auto mb-3 h-10 w-10" />
+          <p className="text-muted-foreground text-sm font-semibold">
+            Posez une question ci-dessus pour démarrer
+          </p>
+          <p className="text-muted-foreground mt-1 text-xs">
             {userRole === 'Expert'
               ? 'Recherchez des sinistres, déclarations ou assurés liés à vos dossiers.'
               : userRole === 'Agent'
                 ? 'Recherchez des clients, contrats ou garanties dans votre portefeuille.'
-                : 'Le pipeline NLTK + spaCy analysera votre question et générera une requête SPARQL.'
-            }
+                : 'Le pipeline NLTK + spaCy analysera votre question et générera une requête SPARQL.'}
           </p>
           <div className="mt-4 flex flex-wrap justify-center gap-2">
-            {getPresetQuestions(userRole).slice(0, 4).map((q, i) => (
-              <button
-                key={i}
-                onClick={() => askQuestion(q)}
-                className="rounded-xl border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-600 hover:border-blue-300 hover:text-blue-700 transition-all flex items-center gap-1"
-              >
-                <ChevronRight className="h-3 w-3" />{q}
-              </button>
-            ))}
+            {getPresetQuestions(userRole)
+              .slice(0, 4)
+              .map((q, i) => (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  key={i}
+                  onClick={() => askQuestion(q)}
+                  className="flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-medium"
+                >
+                  <ChevronRight className="h-3 w-3" />
+                  {q}
+                </Button>
+              ))}
           </div>
         </div>
       )}

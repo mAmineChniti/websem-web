@@ -1,14 +1,17 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { 
-  Users, 
-  FileCheck2, 
-  CreditCard, 
-  Terminal, 
-  ArrowUpRight, 
-  PlusCircle, 
-  ShieldCheck, 
+import { Button } from '@/components/ui/button';
+import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { listContrats } from '@/lib/services/contrats';
+import { listPersonnes } from '@/lib/services/personnes';
+import { getStats } from '@/lib/services/stats';
+import type { Personne } from '@/lib/types/personnes';
+import {
+  Users,
+  FileCheck2,
+  CreditCard,
+  ShieldCheck,
   Sparkles,
   ChevronRight,
   Database,
@@ -22,300 +25,273 @@ interface DashboardViewProps {
 }
 
 export function DashboardView({ onSelectTab, userRole }: DashboardViewProps) {
-  const [stats, setStats] = useState<any>(null);
-  const [personnes, setPersonnes] = useState<any[]>([]);
-  const [contrats, setContrats] = useState<any[]>([]);
+  const statsQuery = useQuery({ queryKey: ['stats'], queryFn: getStats });
+  const personnesQuery = useQuery({
+    queryKey: ['personnes'],
+    queryFn: listPersonnes,
+  });
+  const contratsQuery = useQuery({
+    queryKey: ['contrats'],
+    queryFn: listContrats,
+  });
+  const stats = statsQuery.data;
+  const personnes = personnesQuery.data ?? [];
+  const contrats = contratsQuery.data ?? [];
   const [dommagesCount, setDommagesCount] = useState<number>(0);
   const [clausesCount, setClausesCount] = useState<number>(0);
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
-  useEffect(() => {
-    fetch(`${apiUrl}/api/ontology/stats`)
-      .then((r) => r.json())
-      .then((d) => setStats(d))
-      .catch((e) => console.warn(e));
-
-    fetch(`${apiUrl}/api/ontology/personnes`)
-      .then((r) => r.json())
-      .then((d) => setPersonnes(d.filter((p: any) => p.personne !== 'aPourAssure' && p.type !== 'ObjectProperty' && p.type !== 'RapportExpertise')))
-      .catch((e) => console.warn(e));
-
-    fetch(`${apiUrl}/api/ontology/contrats`)
-      .then((r) => r.json())
-      .then((d) => setContrats(d.filter((c: any) => c.contrat !== 'souscritContrat' && c.contrat !== 'numeroContrat' && c.typeContrat !== 'ObjectProperty' && c.typeContrat !== 'FunctionalProperty' && c.typeContrat !== 'DatatypeProperty')))
-      .catch((e) => console.warn(e));
-
-    fetch(`${apiUrl}/api/dommages/`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((d) => setDommagesCount(Array.isArray(d) ? d.length : 0))
-      .catch((e) => console.warn(e));
-
-    fetch(`${apiUrl}/api/clauses/`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((d) => setClausesCount(Array.isArray(d) ? d.length : 0))
-      .catch((e) => console.warn(e));
-  }, []);
-
-  const totalPrimes = contrats.reduce((acc, c) => acc + (parseFloat(c.montantPrime) || 0), 0);
+  const totalPrimes = contrats.reduce(
+    (acc, c) => acc + (Number.parseFloat(c.montantPrime ?? '') || 0),
+    0
+  );
 
   return (
     <div className="space-y-6">
       {/* Welcome Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-900 via-indigo-950 to-zinc-950 p-6 sm:p-8 text-white shadow-xl">
+      <div className="from-primary via-primary to-card text-primary-foreground relative overflow-hidden rounded-3xl bg-gradient-to-r p-6 shadow-xl sm:p-8">
         <div className="relative z-10 max-w-2xl space-y-3">
-          <div className="inline-flex items-center gap-2 rounded-full bg-blue-500/20 px-3 py-1 text-xs font-semibold text-blue-200 border border-blue-400/30">
-            <Sparkles className="h-3.5 w-3.5 text-blue-300" />
-            <span>Hestia Assur — Système d'Assurance Habitation</span>
+          <div className="border-border bg-muted text-primary inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold">
+            <Sparkles className="text-primary h-3.5 w-3.5" />
+            <span>Hestia Assur — Système d&apos;Assurance Habitation</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-serif text-white">
+          <h1 className="text-primary-foreground font-serif text-2xl font-extrabold tracking-tight sm:text-3xl">
             Gestion Intelligente des Contrats & Souscripteurs
           </h1>
-          <p className="text-xs sm:text-sm text-blue-100/90 leading-relaxed">
-            Plateforme décisionnelle d'assurance habitation.
+          <p className="text-primary text-xs leading-relaxed sm:text-sm">
+            Plateforme décisionnelle d&apos;assurance habitation.
           </p>
-          <div className="pt-2 flex flex-wrap gap-2.5">
-            <button
+          <div className="flex flex-wrap gap-2.5 pt-2">
+            <Button
               onClick={() => onSelectTab('contrats')}
-              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow hover:bg-blue-700 transition-colors"
+              className="text-primary-foreground bg-muted hover:bg-accent inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold shadow transition-colors"
             >
               <FileCheck2 className="h-4 w-4" />
-              <span>{userRole === 'Assure' ? 'Mes Contrats' : 'Gérer les Contrats'}</span>
-            </button>
-            <button
+              <span>
+                {userRole === 'Assure' ? 'Mes Contrats' : 'Gérer les Contrats'}
+              </span>
+            </Button>
+            <Button
               onClick={() => onSelectTab('personnes')}
-              className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-xs font-semibold text-white backdrop-blur hover:bg-white/20 transition-colors border border-white/20"
+              variant="outline"
+              className="bg-card/10 text-primary-foreground hover:bg-card/20 border-border inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold backdrop-blur transition-colors"
             >
-              <Users className="h-4 w-4 text-blue-300" />
-              <span>{userRole === 'Assure' ? 'Mon Profil Assuré' : 'Voir les Personnes'}</span>
-            </button>
-            <button
+              <Users className="text-primary h-4 w-4" />
+              <span>
+                {userRole === 'Assure'
+                  ? 'Mon Profil Assuré'
+                  : 'Voir les Personnes'}
+              </span>
+            </Button>
+            <Button
               onClick={() => onSelectTab('dommages')}
               className="inline-flex items-center gap-2 rounded-xl bg-amber-500/20 px-4 py-2 text-xs font-semibold text-amber-200 backdrop-blur hover:bg-amber-500/30 transition-colors border border-amber-400/30"
             >
               <AlertTriangle className="h-4 w-4 text-amber-300" />
               <span>Dommages ({dommagesCount})</span>
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => onSelectTab('clauses')}
               className="inline-flex items-center gap-2 rounded-xl bg-purple-500/20 px-4 py-2 text-xs font-semibold text-purple-200 backdrop-blur hover:bg-purple-500/30 transition-colors border border-purple-400/30"
             >
               <Scale className="h-4 w-4 text-purple-300" />
               <span>Clauses ({clausesCount})</span>
-            </button>
+            </Button>
           </div>
         </div>
 
-        <div className="absolute right-8 bottom-4 hidden lg:block opacity-10">
-          <Database className="h-44 w-44 text-white" />
+        <div className="absolute right-8 bottom-4 hidden opacity-10 lg:block">
+          <Database className="text-primary-foreground h-44 w-44" />
         </div>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* KPI 1 : Personnes / Profil */}
-        <div 
+        <div
           onClick={() => onSelectTab('personnes')}
-          className="cursor-pointer rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm hover:shadow-md transition-all dark:border-zinc-800 dark:bg-zinc-900"
+          className="border-border bg-card dark:border-border dark:bg-card cursor-pointer rounded-2xl border p-5 shadow-sm transition-all hover:shadow-md"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-zinc-500">
-              {userRole === 'Assure' ? 'Mon Dossier Client' : 'Personnes Ontologie'}
+            <span className="text-muted-foreground text-xs font-medium">
+              {userRole === 'Assure'
+                ? 'Mon Dossier Client'
+                : 'Personnes Ontologie'}
             </span>
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400">
+            <div className="bg-muted text-primary dark:bg-muted dark:text-primary flex h-9 w-9 items-center justify-center rounded-xl">
               <Users className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-              {userRole === 'Assure' ? 'Actif' : stats?.personnes_count || personnes.length}
+            <span className="text-foreground dark:text-foreground text-2xl font-bold">
+              {userRole === 'Assure'
+                ? 'Actif'
+                : stats?.personnes_count || personnes.length}
             </span>
-            <span className="text-xs font-semibold text-blue-600">
+            <span className="text-primary text-xs font-semibold">
               {userRole === 'Assure' ? 'Vérifié' : 'Individus'}
             </span>
           </div>
-          <p className="mt-1 text-[11px] text-zinc-500">
-            {userRole === 'Assure' 
-              ? 'Souscripteur conforme à l\'ontologie OWL' 
+          <p className="text-muted-foreground mt-1 text-[11px]">
+            {userRole === 'Assure'
+              ? "Souscripteur conforme à l'ontologie OWL"
               : `Assurés (${stats?.assures_count || 1}), Agents (${stats?.agents_count || 1}), Experts (${stats?.experts_count || 1})`}
           </p>
         </div>
 
         {/* KPI 2 : Contrats */}
-        <div 
+        <div
           onClick={() => onSelectTab('contrats')}
-          className="cursor-pointer rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm hover:shadow-md transition-all dark:border-zinc-800 dark:bg-zinc-900"
+          className="border-border bg-card dark:border-border dark:bg-card cursor-pointer rounded-2xl border p-5 shadow-sm transition-all hover:shadow-md"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-zinc-500">Contrats Souscrits</span>
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400">
+            <span className="text-muted-foreground text-xs font-medium">
+              Contrats Souscrits
+            </span>
+            <div className="bg-muted text-primary dark:bg-muted dark:text-primary flex h-9 w-9 items-center justify-center rounded-xl">
               <FileCheck2 className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+            <span className="text-foreground dark:text-foreground text-2xl font-bold">
               {stats?.contrats_count || contrats.length}
             </span>
-            <span className="text-xs font-semibold text-emerald-600">Polices actives</span>
+            <span className="text-primary text-xs font-semibold">
+              Polices actives
+            </span>
           </div>
-          <p className="mt-1 text-[11px] text-zinc-500">
+          <p className="text-muted-foreground mt-1 text-[11px]">
             ContratProprietaire, Locataire & Copropriété
           </p>
         </div>
 
         {/* KPI 3 : Primes */}
-        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="border-border bg-card dark:border-border dark:bg-card rounded-2xl border p-5 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-zinc-500">Primes Totales</span>
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400">
+            <span className="text-muted-foreground text-xs font-medium">
+              Primes Totales
+            </span>
+            <div className="bg-muted text-primary dark:bg-muted dark:text-primary flex h-9 w-9 items-center justify-center rounded-xl">
               <CreditCard className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+            <span className="text-foreground dark:text-foreground text-2xl font-bold">
               {totalPrimes.toLocaleString('fr-FR')} DT
             </span>
-            <span className="text-xs text-zinc-400">/ an</span>
+            <span className="text-muted-foreground text-xs">/ an</span>
           </div>
-          <p className="mt-1 text-[11px] text-zinc-500">
-            Attribut <code className="text-amber-600 font-mono">as:montantPrime</code>
+          <p className="text-muted-foreground mt-1 text-[11px]">
+            Attribut{' '}
+            <code className="text-primary font-mono">as:montantPrime</code>
           </p>
         </div>
 
         {/* KPI 4 : Statut Protection (Assuré) ou Ontologie (Back-office) */}
         {userRole === 'Assure' ? (
-          <div 
+          <div
             onClick={() => onSelectTab('personnes')}
-            className="cursor-pointer rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm hover:shadow-md transition-all dark:border-zinc-800 dark:bg-zinc-900"
+            className="border-border bg-card dark:border-border dark:bg-card cursor-pointer rounded-2xl border p-5 shadow-sm transition-all hover:shadow-md"
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-zinc-500">Statut Protection</span>
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-400">
+              <span className="text-muted-foreground text-xs font-medium">
+                Statut Protection
+              </span>
+              <div className="bg-muted text-primary flex h-9 w-9 items-center justify-center rounded-xl">
                 <ShieldCheck className="h-4 w-4" />
               </div>
             </div>
             <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+              <span className="text-foreground dark:text-foreground text-2xl font-bold">
                 Protégé
               </span>
-              <span className="text-xs font-semibold text-emerald-600">100 % Couvert</span>
+              <span className="text-primary text-xs font-semibold">
+                100 % Couvert
+              </span>
             </div>
-            <p className="mt-1 text-[11px] text-zinc-500">
+            <p className="text-muted-foreground mt-1 text-[11px]">
               Protection Incendie, Dégât des Eaux & RC
             </p>
           </div>
         ) : (
-          <div 
-            onClick={() => onSelectTab(userRole === 'Admin' ? 'sparql' : 'contrats')}
-            className="cursor-pointer rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm hover:shadow-md transition-all dark:border-zinc-800 dark:bg-zinc-900"
+          <div
+            onClick={() =>
+              onSelectTab(userRole === 'Admin' ? 'sparql' : 'contrats')
+            }
+            className="border-border bg-card dark:border-border dark:bg-card cursor-pointer rounded-2xl border p-5 shadow-sm transition-all hover:shadow-md"
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-zinc-500">Base Ontologique</span>
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-400">
+              <span className="text-muted-foreground text-xs font-medium">
+                Base Ontologique
+              </span>
+              <div className="bg-muted text-primary flex h-9 w-9 items-center justify-center rounded-xl">
                 <Database className="h-4 w-4" />
               </div>
             </div>
             <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+              <span className="text-foreground dark:text-foreground text-2xl font-bold">
                 {stats?.total_triples || 414}
               </span>
-              <span className="text-xs font-semibold text-purple-600">Triplets RDF</span>
+              <span className="text-primary text-xs font-semibold">
+                Triplets RDF
+              </span>
             </div>
-            <p className="mt-1 text-[11px] text-zinc-500">
+            <p className="text-muted-foreground mt-1 text-[11px]">
               Graphe sémantique de connaissances certifié
             </p>
           </div>
         )}
-
-        {/* KPI 5 : Dommages (Module Montaha) */}
-        <div 
-          onClick={() => onSelectTab('dommages')}
-          className="cursor-pointer rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm hover:shadow-md transition-all dark:border-zinc-800 dark:bg-zinc-900"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-zinc-500">Dommages Déclarés</span>
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400">
-              <AlertTriangle className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-              {dommagesCount}
-            </span>
-            <span className="text-xs font-semibold text-amber-600">Sinistres liés</span>
-          </div>
-          <p className="mt-1 text-[11px] text-zinc-500">
-            Matériels, Corporels & Immatériels
-          </p>
-        </div>
-
-        {/* KPI 6 : Clauses (Module Montaha) */}
-        <div 
-          onClick={() => onSelectTab('clauses')}
-          className="cursor-pointer rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm hover:shadow-md transition-all dark:border-zinc-800 dark:bg-zinc-900"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-zinc-500">Clauses Juridiques</span>
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-400">
-              <Scale className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-              {clausesCount}
-            </span>
-            <span className="text-xs font-semibold text-purple-600">Clauses actives</span>
-          </div>
-          <p className="mt-1 text-[11px] text-zinc-500">
-            Exclusions, Franchises & Obligations
-          </p>
-        </div>
       </div>
 
       {/* Main Grid: Contracts & Persons Preview */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Contracts Preview */}
-        <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
+        <div className="border-border bg-card dark:border-border dark:bg-card space-y-4 rounded-3xl border p-6 shadow-sm">
+          <div className="border-border dark:border-border flex items-center justify-between border-b pb-3">
             <div>
-              <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100 font-serif">
-                Contrats Référencés dans l'Ontologie
+              <h2 className="text-foreground dark:text-foreground font-serif text-base font-bold">
+                Contrats Référencés dans l&apos;Ontologie
               </h2>
-              <p className="text-xs text-zinc-500">Polices d'assurance habitation (Propriétaire, Locataire, Copropriété)</p>
+              <p className="text-muted-foreground text-xs">
+                Polices d&apos;assurance habitation (Propriétaire, Locataire,
+                Copropriété)
+              </p>
             </div>
-            <button
+            <Button
+              variant="ghost"
               onClick={() => onSelectTab('contrats')}
-              className="text-xs font-semibold text-blue-600 hover:underline flex items-center gap-1"
+              className="text-primary flex items-center gap-1 text-xs font-semibold hover:underline"
             >
               <span>Voir tout</span>
               <ChevronRight className="h-3.5 w-3.5" />
-            </button>
+            </Button>
           </div>
 
           <div className="space-y-3">
             {contrats.slice(0, 3).map((c, idx) => (
               <div
                 key={idx}
-                className="rounded-2xl border border-zinc-100 bg-zinc-50/70 p-4 dark:border-zinc-800 dark:bg-zinc-800/40 flex items-center justify-between text-xs"
+                className="border-border bg-muted/70 dark:border-border dark:bg-card/40 flex items-center justify-between rounded-2xl border p-4 text-xs"
               >
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-zinc-900 dark:text-zinc-100 font-mono">
+                    <span className="text-foreground dark:text-foreground font-mono font-bold">
                       {c.numeroContrat || c.contrat}
                     </span>
-                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                    <span className="bg-muted text-primary dark:bg-muted dark:text-primary rounded-full px-2 py-0.5 text-[10px] font-bold">
                       {c.typeContrat}
                     </span>
                   </div>
-                  <span className="text-zinc-500 block mt-1">
+                  <span className="text-muted-foreground mt-1 block">
                     Souscripteur : <strong>{c.assure || 'Assure1'}</strong>
                   </span>
                 </div>
                 <div className="text-right">
-                  <span className="font-bold text-emerald-600 block text-sm">
+                  <span className="text-primary block text-sm font-bold">
                     {c.montantPrime ? `${c.montantPrime} DT` : '850 DT'}
                   </span>
-                  <span className="text-[10px] text-zinc-400">Prime annuelle</span>
+                  <span className="text-muted-foreground text-[10px]">
+                    Prime annuelle
+                  </span>
                 </div>
               </div>
             ))}
@@ -323,74 +299,88 @@ export function DashboardView({ onSelectTab, userRole }: DashboardViewProps) {
         </div>
 
         {/* Persons Preview - Adapté selon le rôle */}
-        <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
+        <div className="border-border bg-card dark:border-border dark:bg-card space-y-4 rounded-3xl border p-6 shadow-sm">
+          <div className="border-border dark:border-border flex items-center justify-between border-b pb-3">
             <div>
-              <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100 font-serif">
-                {userRole === 'Assure' ? 'Mon Profil Assuré' : 'Parties Prenantes & Acteurs de l\'Assurance'}
+              <h2 className="text-foreground dark:text-foreground font-serif text-base font-bold">
+                {userRole === 'Assure'
+                  ? 'Mon Profil Assuré'
+                  : "Parties Prenantes & Acteurs de l'Assurance"}
               </h2>
-              <p className="text-xs text-zinc-500">
-                {userRole === 'Assure' 
-                  ? 'Vos informations personnelles déclarées dans l\'ontologie' 
-                  : 'Sous-classes d\'acteurs qualifiés (Assuré, Agent, Expert, Bénéficiaire)'}
+              <p className="text-muted-foreground text-xs">
+                {userRole === 'Assure'
+                  ? "Vos informations personnelles déclarées dans l'ontologie"
+                  : "Sous-classes d'acteurs qualifiés (Assuré, Agent, Expert, Bénéficiaire)"}
               </p>
             </div>
-            <button
+            <Button
+              variant="ghost"
               onClick={() => onSelectTab('personnes')}
-              className="text-xs font-semibold text-blue-600 hover:underline flex items-center gap-1"
+              className="text-primary flex items-center gap-1 text-xs font-semibold hover:underline"
             >
               <span>{userRole === 'Assure' ? 'Mon profil' : 'Voir tout'}</span>
               <ChevronRight className="h-3.5 w-3.5" />
-            </button>
+            </Button>
           </div>
 
           {userRole === 'Assure' ? (
             /* Vue Assuré : carte de son propre profil uniquement */
             <div
               onClick={() => onSelectTab('personnes')}
-              className="cursor-pointer rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 dark:border-blue-950 dark:bg-blue-950/30 flex items-center justify-between text-xs hover:shadow-sm transition-all"
+              className="border-border from-primary to-card dark:border-border dark:bg-muted flex cursor-pointer items-center justify-between rounded-2xl border bg-gradient-to-r p-4 text-xs transition-all hover:shadow-sm"
             >
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white font-bold text-sm shadow">
-                  {personnes.find((p: any) => p.personne.includes('Assure'))?.prenom?.[0] || 'A'}
-                  {personnes.find((p: any) => p.personne.includes('Assure'))?.nom?.[0] || 'D'}
+                <div className="text-primary-foreground bg-muted flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold shadow">
+                  {personnes.find((p: Personne) =>
+                    p.personne.includes('Assure')
+                  )?.prenom?.[0] || 'A'}
+                  {personnes.find((p: Personne) =>
+                    p.personne.includes('Assure')
+                  )?.nom?.[0] || 'D'}
                 </div>
                 <div>
-                  <span className="font-bold text-zinc-900 dark:text-zinc-100 block">
-                    {personnes.find((p: any) => p.personne === 'Assure1')?.prenom || 'Karim'}{' '}
-                    {personnes.find((p: any) => p.personne === 'Assure1')?.nom || 'BenAli'}
+                  <span className="text-foreground dark:text-foreground block font-bold">
+                    {personnes.find((p: Personne) => p.personne === 'Assure1')
+                      ?.prenom || 'Karim'}{' '}
+                    {personnes.find((p: Personne) => p.personne === 'Assure1')
+                      ?.nom || 'BenAli'}
                   </span>
-                  <span className="text-zinc-500 block mt-0.5">
-                    CIN : {personnes.find((p: any) => p.personne === 'Assure1')?.cin || '08123456'} • Souscripteur Vérifié
+                  <span className="text-muted-foreground mt-0.5 block">
+                    CIN :{' '}
+                    {personnes.find((p: Personne) => p.personne === 'Assure1')
+                      ?.cin || '08123456'}{' '}
+                    • Souscripteur Vérifié
                   </span>
                 </div>
               </div>
-              <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-bold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+              <span className="bg-muted text-primary dark:bg-muted dark:text-primary rounded-full px-2.5 py-1 text-[10px] font-bold">
                 :Assure (OWL)
               </span>
             </div>
           ) : (
             /* Vue Agent / Admin / Expert : liste des personnes */
             <div className="space-y-3">
-              {personnes.slice(0, 3).map((p: any, idx: number) => (
+              {personnes.slice(0, 3).map((p: Personne, idx: number) => (
                 <div
                   key={idx}
-                  className="rounded-2xl border border-zinc-100 bg-zinc-50/70 p-4 dark:border-zinc-800 dark:bg-zinc-800/40 flex items-center justify-between text-xs"
+                  className="border-border bg-muted/70 dark:border-border dark:bg-card/40 flex items-center justify-between rounded-2xl border p-4 text-xs"
                 >
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-zinc-900 dark:text-zinc-100">
+                      <span className="text-foreground dark:text-foreground font-bold">
                         {p.prenom || ''} {p.nom || p.personne}
                       </span>
-                      <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+                      <span className="bg-muted text-primary dark:bg-muted dark:text-primary rounded-full px-2 py-0.5 text-[10px] font-bold">
                         {p.type}
                       </span>
                     </div>
-                    <span className="text-zinc-500 block mt-1">
+                    <span className="text-muted-foreground mt-1 block">
                       CIN : {p.cin || '08123456'} • Tél : {p.telephone || '20123456'}
                     </span>
                   </div>
-                  <span className="font-mono text-zinc-400 text-xs">#{p.personne}</span>
+                  <span className="text-muted-foreground font-mono text-xs">
+                    #{p.personne}
+                  </span>
                 </div>
               ))}
             </div>
