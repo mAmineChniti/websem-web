@@ -6,6 +6,14 @@ import React, { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { askNlp } from '@/lib/services/nlp';
 import { getStats } from '@/lib/services/stats';
 import { cn } from '@/lib/utils';
@@ -1109,9 +1117,9 @@ export function SemanticWebView({ userRole = 'Admin' }: { userRole?: string }) {
               </div>
               <div className="border-border dark:border-border overflow-hidden rounded-2xl border">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead className="bg-muted dark:bg-card">
-                      <tr>
+                  <Table className="text-xs">
+                    <TableHeader className="bg-muted dark:bg-card">
+                      <TableRow className="hover:bg-transparent">
                         {(result.vars || [])
                           .filter((v: string) =>
                             otherRows.some(
@@ -1119,23 +1127,20 @@ export function SemanticWebView({ userRole = 'Admin' }: { userRole?: string }) {
                             )
                           )
                           .map((v: string) => (
-                            <th
+                            <TableHead
                               key={v}
-                              className="text-muted-foreground px-4 py-3 text-left text-[10px] font-bold tracking-wider uppercase"
+                              className="text-muted-foreground h-auto px-4 py-3 text-left text-[10px] font-bold tracking-wider uppercase"
                             >
                               {v
                                 .replaceAll(/([A-Z])/g, ' $1')
                                 .replace(/^./, (s: string) => s.toUpperCase())}
-                            </th>
+                            </TableHead>
                           ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-border dark:divide-border divide-y">
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {otherRows.map((row: NullableStringRecord, i: number) => (
-                        <tr
-                          key={i}
-                          className="hover:bg-muted transition-colors"
-                        >
+                        <TableRow key={i}>
                           {(result.vars || [])
                             .filter((v: string) =>
                               otherRows.some(
@@ -1143,7 +1148,7 @@ export function SemanticWebView({ userRole = 'Admin' }: { userRole?: string }) {
                               )
                             )
                             .map((v: string) => (
-                              <td
+                              <TableCell
                                 key={v}
                                 className="text-foreground dark:text-muted-foreground max-w-[220px] truncate px-4 py-3"
                                 title={row[v] || ''}
@@ -1153,12 +1158,12 @@ export function SemanticWebView({ userRole = 'Admin' }: { userRole?: string }) {
                                     —
                                   </span>
                                 )}
-                              </td>
+                              </TableCell>
                             ))}
-                        </tr>
+                        </TableRow>
                       ))}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
               </div>
             </div>

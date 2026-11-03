@@ -61,3 +61,34 @@ export const editPersonneFormSchema = personneFormSchema.omit({ role: true });
 export const promotionFormSchema = z.object({
   message: z.string().optional(),
 });
+
+export const dommageFormSchema = z.object({
+  type: z.enum(['DommageMateriel', 'DommageCorporel', 'DommageImmateriel']),
+  description: z
+    .string()
+    .trim()
+    .min(1, 'La description du dommage est requise'),
+  montant: z
+    .string()
+    .refine(
+      (value) => Number.parseFloat(value) >= 0,
+      'Le montant doit être positif'
+    ),
+  gravite: z.enum(['Faible', 'Moyen', 'Grave']),
+  sinistre_id: z.string().optional(),
+  date: z.string().optional(),
+  lieu: z.string().optional(),
+});
+
+export const clauseFormSchema = z.object({
+  type: z.enum(['ClauseExclusion', 'ClauseFranchise', 'ClauseObligatoire']),
+  texte_clause: z.string().trim().min(1, 'Le texte de la clause est requis'),
+  description: z.string().optional(),
+  taux_franchise: z
+    .string()
+    .refine(
+      (value) => value === '' || Number.parseFloat(value) >= 0,
+      'Le taux de franchise doit être positif'
+    ),
+  contrat_id: z.string().optional(),
+});

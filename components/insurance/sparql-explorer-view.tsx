@@ -4,6 +4,14 @@ import React, { useState, useRef } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { listSparqlExamples, runSparql } from '@/lib/services/sparql';
 import { cn } from '@/lib/utils';
 import {
@@ -429,33 +437,30 @@ export function SparqlExplorerView({
                 </div>
               ) : (
                 <div className="max-h-72 overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead className="bg-muted dark:bg-card/80 sticky top-0">
-                      <tr>
-                        <th className="text-muted-foreground w-8 px-3 py-2 text-left text-[10px] font-bold tracking-wider uppercase">
+                  <Table className="text-xs">
+                    <TableHeader className="bg-muted dark:bg-card/80 sticky top-0">
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead className="text-muted-foreground h-auto w-8 px-3 py-2 text-left text-[10px] font-bold tracking-wider uppercase">
                           #
-                        </th>
+                        </TableHead>
                         {result.vars.map((v) => (
-                          <th
+                          <TableHead
                             key={v}
-                            className="text-muted-foreground px-3 py-2 text-left font-mono text-[10px] font-bold tracking-wider uppercase"
+                            className="text-muted-foreground h-auto px-3 py-2 text-left font-mono text-[10px] font-bold tracking-wider uppercase"
                           >
                             ?{v}
-                          </th>
+                          </TableHead>
                         ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-border dark:divide-border divide-y">
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {result.results.map((row, i) => (
-                        <tr
-                          key={i}
-                          className="hover:bg-muted transition-colors"
-                        >
-                          <td className="text-muted-foreground px-3 py-2 font-mono">
+                        <TableRow key={i}>
+                          <TableCell className="text-muted-foreground px-3 py-2 font-mono">
                             {i + 1}
-                          </td>
+                          </TableCell>
                           {result.vars.map((v) => (
-                            <td
+                            <TableCell
                               key={v}
                               className="text-foreground dark:text-muted-foreground max-w-50 truncate px-3 py-2 font-mono"
                               title={row[v] || ''}
@@ -479,12 +484,12 @@ export function SparqlExplorerView({
                                   {row[v]}
                                 </span>
                               )}
-                            </td>
+                            </TableCell>
                           ))}
-                        </tr>
+                        </TableRow>
                       ))}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
               )}
             </div>

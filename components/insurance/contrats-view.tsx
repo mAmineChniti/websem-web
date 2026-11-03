@@ -3,13 +3,30 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm, useWatch } from 'react-hook-form';
+import { useForm, useWatch, Controller } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   NativeSelect,
   NativeSelectOption,
 } from '@/components/ui/native-select';
+import { Field, FieldLabel, FieldError } from '@/components/ui/field';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   createContrat,
   deleteContrat,
@@ -24,6 +41,7 @@ import type {
 } from '@/lib/types/contrats';
 import { contratFormSchema } from '@/lib/schemas/forms';
 import { cn } from '@/lib/utils';
+import { toast } from '@/components/ui/toast';
 import type { z } from 'zod';
 import {
   FileCheck2,
@@ -34,7 +52,6 @@ import {
   User,
   Search,
   RefreshCw,
-  X,
   ShieldCheck,
   Lock,
   ShieldAlert,
@@ -129,6 +146,11 @@ export function ContratsView({
   const [editTarget, setEditTarget] = useState<Contrat | undefined>();
   const [editFormError, setEditFormError] = useState<string | undefined>();
   const [editLoading, setEditLoading] = useState(false);
+
+  // Delete confirmation state (Admin)
+  const [deleteContratTarget, setDeleteContratTarget] = useState<
+    string | undefined
+  >();
 
   type ContratFormValues = z.infer<typeof contratFormSchema>;
   const defaultContratValues: ContratFormValues = {
@@ -269,25 +291,32 @@ export function ContratsView({
     }
   };
 
-  const handleDeleteContrat = async (contratId: string) => {
+  const handleDeleteContrat = (contratId: string) => {
     if (!canDeleteContrat) {
-      alert(
-        'Action interdite : Seul un Administrateur est autorisé à supprimer une police juridique.'
-      );
+      toast.add({
+        title: 'Action interdite',
+        description:
+          'Seul un Administrateur est autorisé à supprimer une police juridique.',
+        type: 'error',
+      });
       return;
     }
+    setDeleteContratTarget(contratId);
+  };
 
-    if (
-      !confirm(
-        `Confirmer la suppression définitive du contrat ${contratId} de l'ontologie ?`
-      )
-    )
-      return;
+  const handleConfirmDeleteContrat = async () => {
+    if (!deleteContratTarget) return;
     try {
-      await deleteContrat(contratId);
+      await deleteContrat(deleteContratTarget);
       await queryClient.invalidateQueries({ queryKey: ['contrats'] });
-    } catch (error) {
-      console.error('Error deleting contract:', error);
+    } catch {
+      toast.add({
+        title: 'Erreur',
+        description: 'Erreur de connexion au serveur.',
+        type: 'error',
+      });
+    } finally {
+      setDeleteContratTarget(undefined);
     }
   };
 
@@ -653,634 +682,779 @@ export function ContratsView({
           MODAL — Créer un Contrat (Agent & Admin)
           Formulaire complet : Assuré → Habitation → Type → Garanties → Bénéficiaire → Dates/Prime/Franchise
          ══════════════════════════════════════════════════════════════════ */}
-      {isModalOpen && canCreateContrat && (
-        <div className="animate-in fade-in bg-foreground/60 fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm duration-200">
-          <div className="border-border bg-card dark:border-border dark:bg-card relative max-h-[90vh] w-full max-w-lg overflow-hidden overflow-y-auto rounded-3xl border shadow-2xl">
-            <div className="from-primary to-card text-primary-foreground relative sticky top-0 z-10 bg-gradient-to-r p-6">
-              <Button
-                onClick={() => setIsModalOpen(false)}
-                className="bg-card/10 text-primary-foreground hover:bg-card/20 absolute top-4 right-4 rounded-full p-1.5 transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-              <h2 className="font-serif text-lg font-bold">
-                Créer un Contrat d&apos;Assurance
-              </h2>
-              <p className="text-primary text-xs">
-                Souscription pour un assuré — conforme au modèle ontologique OWL
-              </p>
+      <Dialog
+        open={isModalOpen && canCreateContrat}
+        onOpenChange={(open) => {
+          if (!open) setIsModalOpen(false);
+        }}
+      >
+        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto rounded-3xl p-0">
+          <DialogHeader className="from-primary to-card text-primary-foreground relative sticky top-0 z-10 gap-1 bg-gradient-to-r p-6">
+            <DialogTitle className="font-serif text-lg font-bold">
+              Créer un Contrat d&apos;Assurance
+            </DialogTitle>
+            <p className="text-primary text-xs">
+              Souscription pour un assuré — conforme au modèle ontologique OWL
+            </p>
+          </DialogHeader>
+
+          <form
+            onSubmit={createForm.handleSubmit(handleCreateContrat)}
+            className="space-y-4 p-6"
+          >
+            {/* Encart informatif sur les champs obligatoires */}
+            <div className="dark:bg-muted/40 dark:text-foreground border-border bg-muted text-primary dark:border-border flex items-center justify-between rounded-xl border p-3 text-xs">
+              <span>
+                Tous les champs marqués d&apos;une étoile (
+                <span className="text-destructive text-sm font-bold">*</span>)
+                sont <strong>obligatoires</strong>.
+              </span>
+              <span className="text-foreground bg-muted dark:bg-muted dark:text-primary rounded-full px-2 py-0.5 text-[10px] font-bold">
+                Validation stricte
+              </span>
             </div>
 
-            <form
-              onSubmit={createForm.handleSubmit(handleCreateContrat)}
-              className="space-y-4 p-6"
-            >
-              {/* Encart informatif sur les champs obligatoires */}
-              <div className="dark:bg-muted/40 dark:text-foreground border-border bg-muted text-primary dark:border-border flex items-center justify-between rounded-xl border p-3 text-xs">
-                <span>
-                  Tous les champs marqués d&apos;une étoile (
-                  <span className="text-destructive text-sm font-bold">*</span>)
-                  sont <strong>obligatoires</strong>.
-                </span>
-                <span className="text-foreground bg-muted dark:bg-muted dark:text-primary rounded-full px-2 py-0.5 text-[10px] font-bold">
-                  Validation stricte
-                </span>
+            {formError && (
+              <div className="border-border bg-muted text-destructive flex items-center gap-2 rounded-xl border p-3 text-xs">
+                <ShieldAlert className="text-destructive h-4 w-4 shrink-0" />
+                <span>{formError}</span>
               </div>
+            )}
 
-              {formError && (
-                <div className="border-border bg-muted text-destructive flex items-center gap-2 rounded-xl border p-3 text-xs">
-                  <ShieldAlert className="text-destructive h-4 w-4 shrink-0" />
-                  <span>{formError}</span>
-                </div>
-              )}
-
-              {/* ── 1. Assuré (liste déroulante) ────────────────────────── */}
-              <div className="border-border bg-muted space-y-1.5 rounded-xl border p-3">
-                <label className="text-primary flex items-center gap-2 text-xs font-bold">
-                  <User className="text-primary h-3.5 w-3.5" />
-                  <span>1. Assuré souscripteur</span>
-                  <span className="text-destructive font-bold">*</span>
-                  <span className="bg-muted text-destructive dark:bg-muted rounded px-1.5 py-0.5 text-[9px] font-semibold">
-                    Obligatoire
-                  </span>
-                  <span className="text-primary ml-auto text-[9px] font-normal">
-                    (aPourAssure)
-                  </span>
-                </label>
-                <NativeSelect {...createForm.register('assure')} required>
-                  <NativeSelectOption value="">
-                    — Sélectionner un assuré (obligatoire) —
-                  </NativeSelectOption>
-                  {assuresList.map((a) => (
-                    <NativeSelectOption key={a.id} value={a.id}>
-                      {a.prenom} {a.nom} ({a.id})
+            {/* ── 1. Assuré (liste déroulante) ────────────────────────── */}
+            <Field>
+              <FieldLabel
+                htmlFor="contrat-create-assure"
+                className="text-primary flex items-center gap-2 text-xs font-bold"
+              >
+                <User className="text-primary h-3.5 w-3.5" />
+                <span>1. Assuré souscripteur</span>
+                <span className="text-destructive font-bold">*</span>
+                <span className="bg-muted text-destructive dark:bg-muted rounded px-1.5 py-0.5 text-[9px] font-semibold">
+                  Obligatoire
+                </span>
+                <span className="text-primary ml-auto text-[9px] font-normal">
+                  (aPourAssure)
+                </span>
+              </FieldLabel>
+              <Controller
+                name="assure"
+                control={createForm.control}
+                render={({ field }) => (
+                  <NativeSelect {...field} id="contrat-create-assure">
+                    <NativeSelectOption value="">
+                      — Sélectionner un assuré (obligatoire) —
                     </NativeSelectOption>
-                  ))}
-                </NativeSelect>
-                {assuresList.length === 0 && (
-                  <p className="text-primary text-[10px]">
-                    ⚠ Aucun assuré trouvé dans l&apos;ontologie. Créez
-                    d&apos;abord un assuré.
-                  </p>
+                    {assuresList.map((a) => (
+                      <NativeSelectOption key={a.id} value={a.id}>
+                        {a.prenom} {a.nom} ({a.id})
+                      </NativeSelectOption>
+                    ))}
+                  </NativeSelect>
                 )}
-              </div>
+              />
+              <FieldError errors={[createForm.formState.errors.assure]} />
+              {assuresList.length === 0 && (
+                <p className="text-primary text-[10px]">
+                  ⚠ Aucun assuré trouvé dans l&apos;ontologie. Créez
+                  d&apos;abord un assuré.
+                </p>
+              )}
+            </Field>
 
-              {/* ── 2. Habitation ─────────────────────────────────────── */}
-              <div className="border-border bg-muted space-y-1.5 rounded-xl border p-3">
-                <label className="text-primary flex items-center gap-2 text-xs font-bold">
-                  <Home className="text-primary h-3.5 w-3.5" />
-                  <span>2. Habitation concernée</span>
-                  <span className="text-destructive font-bold">*</span>
-                  <span className="bg-muted text-destructive dark:bg-muted rounded px-1.5 py-0.5 text-[9px] font-semibold">
-                    Obligatoire
-                  </span>
-                </label>
-                <div className="grid grid-cols-4 gap-2">
-                  {HABITATIONS.map((h) => (
-                    <Button
-                      key={h.id}
-                      type="button"
-                      onClick={() => createForm.setValue('habitation', h.id)}
-                      className={cn(
-                        'flex flex-col items-center gap-1 rounded-xl border p-2 text-[11px] font-semibold transition-all',
-                        createValues.habitation === h.id
-                          ? 'border-border bg-muted text-primary ring-ring shadow-sm ring-1'
-                          : 'border-border bg-card text-muted-foreground hover:border-border'
-                      )}
-                    >
-                      <span className="text-lg">{h.icon}</span>
-                      <span>{h.label}</span>
-                    </Button>
-                  ))}
-                </div>
+            {/* ── 2. Habitation ─────────────────────────────────────── */}
+            <div className="border-border bg-muted space-y-1.5 rounded-xl border p-3">
+              <FieldLabel className="text-primary flex items-center gap-2 text-xs font-bold">
+                <Home className="text-primary h-3.5 w-3.5" />
+                <span>2. Habitation concernée</span>
+                <span className="text-destructive font-bold">*</span>
+                <span className="bg-muted text-destructive dark:bg-muted rounded px-1.5 py-0.5 text-[9px] font-semibold">
+                  Obligatoire
+                </span>
+              </FieldLabel>
+              <div className="grid grid-cols-4 gap-2">
+                {HABITATIONS.map((h) => (
+                  <Button
+                    key={h.id}
+                    type="button"
+                    onClick={() => createForm.setValue('habitation', h.id)}
+                    className={cn(
+                      'flex flex-col items-center gap-1 rounded-xl border p-2 text-[11px] font-semibold transition-all',
+                      createValues.habitation === h.id
+                        ? 'border-border bg-muted text-primary ring-ring shadow-sm ring-1'
+                        : 'border-border bg-card text-muted-foreground hover:border-border'
+                    )}
+                  >
+                    <span className="text-lg">{h.icon}</span>
+                    <span>{h.label}</span>
+                  </Button>
+                ))}
               </div>
+            </div>
 
-              {/* ── 3. Type de contrat ────────────────────────────────── */}
-              <div>
-                <label className="text-foreground dark:text-muted-foreground mb-1.5 flex items-center gap-2 text-xs font-bold">
-                  <FileCheck2 className="text-muted-foreground h-3.5 w-3.5" />
-                  <span>3. Formule de contrat</span>
-                  <span className="text-destructive font-bold">*</span>
-                  <span className="bg-muted text-destructive dark:bg-muted rounded px-1.5 py-0.5 text-[9px] font-semibold">
-                    Obligatoire
-                  </span>
-                </label>
-                <NativeSelect {...createForm.register('type')} required>
-                  <NativeSelectOption value="ContratProprietaire">
-                    Propriétaire (Résidence principale / secondaire)
-                  </NativeSelectOption>
-                  <NativeSelectOption value="ContratLocataire">
-                    Locataire (Risques locatifs)
-                  </NativeSelectOption>
-                  <NativeSelectOption value="ContratCopropriete">
-                    Copropriété (Immeuble / Parties communes)
-                  </NativeSelectOption>
-                </NativeSelect>
-              </div>
-
-              {/* ── 4. Garanties (multi-sélection) ───────────────────── */}
-              <div className="border-border bg-muted space-y-1.5 rounded-xl border p-3">
-                <label className="text-primary flex items-center gap-2 text-xs font-bold">
-                  <Shield className="text-primary h-3.5 w-3.5" />
-                  <span>4. Garanties souscrites</span>
-                  <span className="text-destructive font-bold">*</span>
-                  <span className="bg-muted text-destructive dark:bg-muted rounded px-1.5 py-0.5 text-[9px] font-semibold">
-                    Au moins 1
-                  </span>
-                  <span className="text-primary ml-auto text-[9px] font-normal">
-                    {createValues.garanties.length} sélectionnée
-                    {createValues.garanties.length > 1 ? 's' : ''}
-                  </span>
-                </label>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {GARANTIES_DISPONIBLES.map((g) => (
-                    <Button
-                      key={g.id}
-                      type="button"
-                      onClick={() => {
-                        const garanties = createValues.garanties.includes(g.id)
-                          ? createValues.garanties.filter(
-                              (value) => value !== g.id
-                            )
-                          : [...createValues.garanties, g.id];
-                        createForm.setValue('garanties', garanties, {
-                          shouldValidate: true,
-                        });
-                      }}
-                      className={cn(
-                        'flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-[11px] font-medium transition-all',
-                        createValues.garanties.includes(g.id)
-                          ? 'border-border bg-muted text-primary shadow-sm'
-                          : 'border-border bg-card text-muted-foreground hover:border-border'
-                      )}
-                    >
-                      <span>{g.icon}</span>
-                      <span className="flex-1">{g.label}</span>
-                      {createValues.garanties.includes(g.id) && (
-                        <CheckSquare className="text-primary h-3.5 w-3.5 shrink-0" />
-                      )}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              {/* ── 5. Bénéficiaire (facultatif) ─────────────────────── */}
-              <div>
-                <label className="text-foreground dark:text-muted-foreground mb-1.5 flex items-center gap-2 text-xs font-bold">
-                  <Users className="text-muted-foreground h-3.5 w-3.5" />
-                  <span>5. Bénéficiaire désigné</span>
-                  <span className="bg-muted text-muted-foreground dark:bg-card ml-auto rounded px-1.5 py-0.5 text-[9px] font-normal">
-                    Facultatif
-                  </span>
-                </label>
-                <NativeSelect {...createForm.register('beneficiaire')}>
-                  <NativeSelectOption value="">
-                    — Aucun bénéficiaire (facultatif) —
-                  </NativeSelectOption>
-                  {beneficiairesList.map((b) => (
-                    <NativeSelectOption key={b.id} value={b.id}>
-                      {b.prenom} {b.nom} ({b.id})
+            {/* ── 3. Type de contrat ────────────────────────────────── */}
+            <Field>
+              <FieldLabel
+                htmlFor="contrat-create-type"
+                className="text-foreground dark:text-muted-foreground mb-1.5 flex items-center gap-2 text-xs font-bold"
+              >
+                <FileCheck2 className="text-muted-foreground h-3.5 w-3.5" />
+                <span>3. Formule de contrat</span>
+                <span className="text-destructive font-bold">*</span>
+                <span className="bg-muted text-destructive dark:bg-muted rounded px-1.5 py-0.5 text-[9px] font-semibold">
+                  Obligatoire
+                </span>
+              </FieldLabel>
+              <Controller
+                name="type"
+                control={createForm.control}
+                render={({ field }) => (
+                  <NativeSelect {...field} id="contrat-create-type">
+                    <NativeSelectOption value="ContratProprietaire">
+                      Propriétaire (Résidence principale / secondaire)
                     </NativeSelectOption>
-                  ))}
-                </NativeSelect>
-              </div>
+                    <NativeSelectOption value="ContratLocataire">
+                      Locataire (Risques locatifs)
+                    </NativeSelectOption>
+                    <NativeSelectOption value="ContratCopropriete">
+                      Copropriété (Immeuble / Parties communes)
+                    </NativeSelectOption>
+                  </NativeSelect>
+                )}
+              />
+              <FieldError errors={[createForm.formState.errors.type]} />
+            </Field>
 
-              {/* ── 6. Numéro de police ───────────────────────────────── */}
-              <div>
-                <label className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1.5 text-xs font-bold">
-                  <span>6. Numéro de Police contractuelle</span>
+            {/* ── 4. Garanties (multi-sélection) ───────────────────── */}
+            <div className="border-border bg-muted space-y-1.5 rounded-xl border p-3">
+              <FieldLabel className="text-primary flex items-center gap-2 text-xs font-bold">
+                <Shield className="text-primary h-3.5 w-3.5" />
+                <span>4. Garanties souscrites</span>
+                <span className="text-destructive font-bold">*</span>
+                <span className="bg-muted text-destructive dark:bg-muted rounded px-1.5 py-0.5 text-[9px] font-semibold">
+                  Au moins 1
+                </span>
+                <span className="text-primary ml-auto text-[9px] font-normal">
+                  {createValues.garanties.length} sélectionnée
+                  {createValues.garanties.length > 1 ? 's' : ''}
+                </span>
+              </FieldLabel>
+              <div className="grid grid-cols-2 gap-1.5">
+                {GARANTIES_DISPONIBLES.map((g) => (
+                  <Button
+                    key={g.id}
+                    type="button"
+                    onClick={() => {
+                      const garanties = createValues.garanties.includes(g.id)
+                        ? createValues.garanties.filter(
+                            (value) => value !== g.id
+                          )
+                        : [...createValues.garanties, g.id];
+                      createForm.setValue('garanties', garanties, {
+                        shouldValidate: true,
+                      });
+                    }}
+                    className={cn(
+                      'flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-[11px] font-medium transition-all',
+                      createValues.garanties.includes(g.id)
+                        ? 'border-border bg-muted text-primary shadow-sm'
+                        : 'border-border bg-card text-muted-foreground hover:border-border'
+                    )}
+                  >
+                    <span>{g.icon}</span>
+                    <span className="flex-1">{g.label}</span>
+                    {createValues.garanties.includes(g.id) && (
+                      <CheckSquare className="text-primary h-3.5 w-3.5 shrink-0" />
+                    )}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* ── 5. Bénéficiaire (facultatif) ─────────────────────── */}
+            <Field>
+              <FieldLabel className="text-foreground dark:text-muted-foreground mb-1.5 flex items-center gap-2 text-xs font-bold">
+                <Users className="text-muted-foreground h-3.5 w-3.5" />
+                <span>5. Bénéficiaire désigné</span>
+                <span className="bg-muted text-muted-foreground dark:bg-card ml-auto rounded px-1.5 py-0.5 text-[9px] font-normal">
+                  Facultatif
+                </span>
+              </FieldLabel>
+              <Controller
+                name="beneficiaire"
+                control={createForm.control}
+                render={({ field }) => (
+                  <NativeSelect {...field}>
+                    <NativeSelectOption value="">
+                      — Aucun bénéficiaire (facultatif) —
+                    </NativeSelectOption>
+                    {beneficiairesList.map((b) => (
+                      <NativeSelectOption key={b.id} value={b.id}>
+                        {b.prenom} {b.nom} ({b.id})
+                      </NativeSelectOption>
+                    ))}
+                  </NativeSelect>
+                )}
+              />
+              <FieldError errors={[createForm.formState.errors.beneficiaire]} />
+            </Field>
+
+            {/* ── 6. Numéro de police ───────────────────────────────── */}
+            <Field>
+              <FieldLabel
+                htmlFor="contrat-create-numeroContrat"
+                className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1.5 text-xs font-bold"
+              >
+                <span>6. Numéro de Police contractuelle</span>
+                <span className="text-destructive font-bold">*</span>
+                <span className="bg-muted text-destructive dark:bg-muted rounded px-1.5 py-0.5 text-[9px] font-semibold">
+                  Obligatoire
+                </span>
+              </FieldLabel>
+              <Controller
+                name="numeroContrat"
+                control={createForm.control}
+                render={({ field }) => (
+                  <Input
+                    {...field}
+                    id="contrat-create-numeroContrat"
+                    type="text"
+                    placeholder="Ex: C-2026-004"
+                    className="border-input dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border p-2 font-mono text-xs focus:outline-none"
+                  />
+                )}
+              />
+              <FieldError
+                errors={[createForm.formState.errors.numeroContrat]}
+              />
+            </Field>
+
+            {/* ── 7. Prime + Franchise ──────────────────────────────── */}
+            <div className="grid grid-cols-2 gap-3">
+              <Field>
+                <FieldLabel
+                  htmlFor="contrat-create-montantPrime"
+                  className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold"
+                >
+                  <DollarSign className="text-primary h-3 w-3" />
+                  <span>Prime Annuelle (DT)</span>
                   <span className="text-destructive font-bold">*</span>
-                  <span className="bg-muted text-destructive dark:bg-muted rounded px-1.5 py-0.5 text-[9px] font-semibold">
-                    Obligatoire
+                </FieldLabel>
+                <Controller
+                  name="montantPrime"
+                  control={createForm.control}
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      id="contrat-create-montantPrime"
+                      type="number"
+                      min="1"
+                      step="0.01"
+                      placeholder="Ex: 650"
+                      className="border-input dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border p-2 text-xs focus:outline-none"
+                    />
+                  )}
+                />
+                <FieldError
+                  errors={[createForm.formState.errors.montantPrime]}
+                />
+              </Field>
+              <Field>
+                <FieldLabel
+                  htmlFor="contrat-create-franchise"
+                  className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold"
+                >
+                  <DollarSign className="text-muted-foreground h-3 w-3" />
+                  <span>Franchise (DT)</span>
+                  <span className="text-muted-foreground ml-auto text-[9px] font-normal">
+                    Optionnel
                   </span>
-                </label>
+                </FieldLabel>
+                <Controller
+                  name="franchise"
+                  control={createForm.control}
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      id="contrat-create-franchise"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="Ex: 150"
+                      className="border-input dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border p-2 text-xs focus:outline-none"
+                    />
+                  )}
+                />
+                <FieldError errors={[createForm.formState.errors.franchise]} />
+              </Field>
+            </div>
+
+            {/* ── 8. Dates ──────────────────────────────────────────── */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <FieldLabel
+                  htmlFor="contrat-create-datedebut"
+                  className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold"
+                >
+                  <Calendar className="text-primary h-3 w-3" />
+                  <span>Date Début d&apos;effet</span>
+                  <span className="text-destructive font-bold">*</span>
+                </FieldLabel>
                 <Input
-                  type="text"
-                  required
-                  {...createForm.register('numeroContrat')}
-                  placeholder="Ex: C-2026-004"
-                  className="border-input dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border p-2 font-mono text-xs focus:outline-none"
+                  id="contrat-create-datedebut"
+                  type="date"
+                  value={createValues.dateDebut.split('T', 1)[0]}
+                  onChange={(e) =>
+                    createForm.setValue(
+                      'dateDebut',
+                      `${e.target.value}T00:00:00`,
+                      { shouldValidate: true }
+                    )
+                  }
+                  className="border-input dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border p-2 text-xs focus:outline-none"
                 />
               </div>
-
-              {/* ── 7. Prime + Franchise ──────────────────────────────── */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold">
-                    <DollarSign className="text-primary h-3 w-3" />
-                    <span>Prime Annuelle (DT)</span>
-                    <span className="text-destructive font-bold">*</span>
-                  </label>
-                  <Input
-                    type="number"
-                    required
-                    min="1"
-                    step="0.01"
-                    {...createForm.register('montantPrime')}
-                    placeholder="Ex: 650"
-                    className="border-input dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border p-2 text-xs focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold">
-                    <DollarSign className="text-muted-foreground h-3 w-3" />
-                    <span>Franchise (DT)</span>
-                    <span className="text-muted-foreground ml-auto text-[9px] font-normal">
-                      Optionnel
-                    </span>
-                  </label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    {...createForm.register('franchise')}
-                    placeholder="Ex: 150"
-                    className="border-input dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border p-2 text-xs focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* ── 8. Dates ──────────────────────────────────────────── */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold">
-                    <Calendar className="text-primary h-3 w-3" />
-                    <span>Date Début d&apos;effet</span>
-                    <span className="text-destructive font-bold">*</span>
-                  </label>
-                  <Input
-                    type="date"
-                    required
-                    value={createValues.dateDebut.split('T', 1)[0]}
-                    onChange={(e) =>
-                      createForm.setValue(
-                        'dateDebut',
-                        `${e.target.value}T00:00:00`,
-                        { shouldValidate: true }
-                      )
-                    }
-                    className="border-input dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border p-2 text-xs focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold">
-                    <Calendar className="text-primary h-3 w-3" />
-                    <span>Date Fin d&apos;échéance</span>
-                    <span className="text-destructive font-bold">*</span>
-                  </label>
-                  <Input
-                    type="date"
-                    required
-                    value={createValues.dateFin.split('T', 1)[0]}
-                    onChange={(e) =>
-                      createForm.setValue(
-                        'dateFin',
-                        `${e.target.value}T00:00:00`,
-                        { shouldValidate: true }
-                      )
-                    }
-                    className="border-input dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border p-2 text-xs focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Submit */}
-              <div className="border-border dark:border-border flex justify-end gap-2 border-t pt-3">
-                <Button
-                  variant="outline"
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="rounded-xl px-4 py-2 text-xs font-semibold"
+              <div>
+                <FieldLabel
+                  htmlFor="contrat-create-datefin"
+                  className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold"
                 >
-                  Annuler
-                </Button>
-                <Button
-                  type="submit"
-                  className="rounded-xl px-5 py-2 text-xs font-bold shadow"
-                >
-                  Créer le contrat
-                </Button>
+                  <Calendar className="text-primary h-3 w-3" />
+                  <span>Date Fin d&apos;échéance</span>
+                  <span className="text-destructive font-bold">*</span>
+                </FieldLabel>
+                <Input
+                  id="contrat-create-datefin"
+                  type="date"
+                  value={createValues.dateFin.split('T', 1)[0]}
+                  onChange={(e) =>
+                    createForm.setValue(
+                      'dateFin',
+                      `${e.target.value}T00:00:00`,
+                      { shouldValidate: true }
+                    )
+                  }
+                  className="border-input dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border p-2 text-xs focus:outline-none"
+                />
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+            </div>
+
+            {/* Submit */}
+            <div className="border-border dark:border-border flex justify-end gap-2 border-t pt-3">
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="rounded-xl px-4 py-2 text-xs font-semibold"
+              >
+                Annuler
+              </Button>
+              <Button
+                type="submit"
+                className="rounded-xl px-5 py-2 text-xs font-bold shadow"
+              >
+                Créer le contrat
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* ══════════════════════════════════════════════════════════════════
           MODAL — MODIFIER UN CONTRAT (Agent & Admin)
           Mise à jour directe dans l'ontologie RDF/OWL
          ══════════════════════════════════════════════════════════════════ */}
-      {isEditModalOpen && editTarget && canEditContrat && (
-        <div className="animate-in fade-in bg-foreground/60 fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm duration-200">
-          <div className="border-border bg-card dark:border-border dark:bg-card relative max-h-[90vh] w-full max-w-lg overflow-hidden overflow-y-auto rounded-3xl border shadow-2xl">
-            {/* Header */}
-            <div className="from-primary text-primary-foreground via-primary to-card relative sticky top-0 z-10 bg-gradient-to-r p-6">
+      <Dialog
+        open={isEditModalOpen && canEditContrat}
+        onOpenChange={(open) => {
+          if (!open) {
+            setIsEditModalOpen(false);
+            setEditTarget(undefined);
+          }
+        }}
+      >
+        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto rounded-3xl p-0">
+          {/* Header */}
+          <DialogHeader className="from-primary text-primary-foreground via-primary to-card relative sticky top-0 z-10 gap-1 bg-gradient-to-r p-6">
+            <DialogTitle className="flex items-center gap-2 font-serif text-lg font-bold">
+              <Pencil className="text-primary h-5 w-5" />
+              Modifier le Contrat d&apos;Assurance
+            </DialogTitle>
+            <p className="text-primary font-mono text-xs">
+              Police #{editTarget?.numeroContrat || editTarget?.contrat} —{' '}
+              {editTarget?.contrat}
+            </p>
+          </DialogHeader>
+
+          <form
+            onSubmit={editForm.handleSubmit(handleEditContrat)}
+            className="space-y-4 p-6"
+          >
+            {/* Encart informatif */}
+            <div className="border-border bg-muted text-primary dark:border-border dark:bg-muted dark:text-primary flex items-center justify-between rounded-xl border p-3 text-xs">
+              <span>
+                Modification des propriétés RDF et relations OWL dans{' '}
+                <code className="font-mono">assurance.rdf</code>.
+              </span>
+              <span className="bg-muted text-primary dark:bg-muted dark:text-primary rounded-full px-2 py-0.5 text-[10px] font-bold">
+                Édition OWL
+              </span>
+            </div>
+
+            {editFormError && (
+              <div className="border-border bg-muted text-destructive flex items-center gap-2 rounded-xl border p-3 text-xs">
+                <ShieldAlert className="text-destructive h-4 w-4 shrink-0" />
+                <span>{editFormError}</span>
+              </div>
+            )}
+
+            {/* ── 1. Assuré souscripteur ──────────────────────────── */}
+            <Field>
+              <FieldLabel
+                htmlFor="contrat-edit-assure"
+                className="text-primary flex items-center gap-2 text-xs font-bold"
+              >
+                <User className="text-primary h-3.5 w-3.5" />
+                <span>1. Assuré souscripteur</span>
+                <span className="text-destructive font-bold">*</span>
+                <span className="bg-muted text-destructive dark:bg-muted rounded px-1.5 py-0.5 text-[9px] font-semibold">
+                  Obligatoire
+                </span>
+              </FieldLabel>
+              <Controller
+                name="assure"
+                control={editForm.control}
+                render={({ field }) => (
+                  <NativeSelect {...field} id="contrat-edit-assure">
+                    <NativeSelectOption value="">
+                      — Sélectionner un assuré (obligatoire) —
+                    </NativeSelectOption>
+                    {assuresList.map((a) => (
+                      <NativeSelectOption key={a.id} value={a.id}>
+                        {a.prenom} {a.nom} ({a.id})
+                      </NativeSelectOption>
+                    ))}
+                  </NativeSelect>
+                )}
+              />
+              <FieldError errors={[editForm.formState.errors.assure]} />
+            </Field>
+
+            {/* ── 2. Habitation ─────────────────────────────────────── */}
+            <div className="border-border bg-muted space-y-1.5 rounded-xl border p-3">
+              <FieldLabel className="text-primary flex items-center gap-2 text-xs font-bold">
+                <Home className="text-primary h-3.5 w-3.5" />
+                <span>2. Habitation couverte</span>
+                <span className="text-destructive font-bold">*</span>
+                <span className="bg-muted text-destructive dark:bg-muted rounded px-1.5 py-0.5 text-[9px] font-semibold">
+                  Obligatoire
+                </span>
+              </FieldLabel>
+              <div className="grid grid-cols-4 gap-2">
+                {HABITATIONS.map((h) => (
+                  <Button
+                    key={h.id}
+                    type="button"
+                    onClick={() => editForm.setValue('habitation', h.id)}
+                    className={cn(
+                      'flex flex-col items-center gap-1 rounded-xl border p-2 text-[11px] font-semibold transition-all',
+                      editValues.habitation === h.id
+                        ? 'border-border bg-muted text-primary ring-ring shadow-sm ring-1'
+                        : 'border-border bg-card text-muted-foreground hover:border-border'
+                    )}
+                  >
+                    <span className="text-lg">{h.icon}</span>
+                    <span>{h.label}</span>
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* ── 3. Type de contrat ────────────────────────────────── */}
+            <Field>
+              <FieldLabel
+                htmlFor="contrat-edit-type"
+                className="text-foreground dark:text-muted-foreground mb-1.5 flex items-center gap-2 text-xs font-bold"
+              >
+                <FileCheck2 className="text-muted-foreground h-3.5 w-3.5" />
+                <span>3. Formule de contrat</span>
+                <span className="text-destructive font-bold">*</span>
+              </FieldLabel>
+              <Controller
+                name="type"
+                control={editForm.control}
+                render={({ field }) => (
+                  <NativeSelect {...field} id="contrat-edit-type">
+                    <NativeSelectOption value="ContratProprietaire">
+                      Propriétaire (Résidence principale / secondaire)
+                    </NativeSelectOption>
+                    <NativeSelectOption value="ContratLocataire">
+                      Locataire (Risques locatifs)
+                    </NativeSelectOption>
+                    <NativeSelectOption value="ContratCopropriete">
+                      Copropriété (Immeuble / Parties communes)
+                    </NativeSelectOption>
+                  </NativeSelect>
+                )}
+              />
+              <FieldError errors={[editForm.formState.errors.type]} />
+            </Field>
+
+            {/* ── 4. Garanties (multi-sélection) ───────────────────── */}
+            <div className="border-border bg-muted space-y-1.5 rounded-xl border p-3">
+              <FieldLabel className="text-primary flex items-center gap-2 text-xs font-bold">
+                <Shield className="text-primary h-3.5 w-3.5" />
+                <span>4. Garanties souscrites</span>
+                <span className="text-destructive font-bold">*</span>
+                <span className="bg-muted text-destructive dark:bg-muted rounded px-1.5 py-0.5 text-[9px] font-semibold">
+                  Au moins 1
+                </span>
+                <span className="text-primary ml-auto text-[9px] font-normal">
+                  {editValues.garanties.length} sélectionnée
+                  {editValues.garanties.length > 1 ? 's' : ''}
+                </span>
+              </FieldLabel>
+              <div className="grid grid-cols-2 gap-1.5">
+                {GARANTIES_DISPONIBLES.map((g) => (
+                  <Button
+                    key={g.id}
+                    type="button"
+                    onClick={() => {
+                      const garanties = editValues.garanties.includes(g.id)
+                        ? editValues.garanties.filter((value) => value !== g.id)
+                        : [...editValues.garanties, g.id];
+                      editForm.setValue('garanties', garanties, {
+                        shouldValidate: true,
+                      });
+                    }}
+                    className={cn(
+                      'flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-[11px] font-medium transition-all',
+                      editValues.garanties.includes(g.id)
+                        ? 'border-border bg-muted text-primary shadow-sm'
+                        : 'border-border bg-card text-muted-foreground hover:border-border'
+                    )}
+                  >
+                    <span>{g.icon}</span>
+                    <span className="flex-1">{g.label}</span>
+                    {editValues.garanties.includes(g.id) && (
+                      <CheckSquare className="text-primary h-3.5 w-3.5 shrink-0" />
+                    )}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* ── 5. Bénéficiaire (facultatif) ─────────────────────── */}
+            <Field>
+              <FieldLabel className="text-foreground dark:text-muted-foreground mb-1.5 flex items-center gap-2 text-xs font-bold">
+                <Users className="text-muted-foreground h-3.5 w-3.5" />
+                <span>5. Bénéficiaire désigné</span>
+                <span className="bg-muted text-muted-foreground dark:bg-card ml-auto rounded px-1.5 py-0.5 text-[9px] font-normal">
+                  Facultatif
+                </span>
+              </FieldLabel>
+              <Controller
+                name="beneficiaire"
+                control={editForm.control}
+                render={({ field }) => (
+                  <NativeSelect {...field}>
+                    <NativeSelectOption value="">
+                      — Aucun bénéficiaire (facultatif) —
+                    </NativeSelectOption>
+                    {beneficiairesList.map((b) => (
+                      <NativeSelectOption key={b.id} value={b.id}>
+                        {b.prenom} {b.nom} ({b.id})
+                      </NativeSelectOption>
+                    ))}
+                  </NativeSelect>
+                )}
+              />
+              <FieldError errors={[editForm.formState.errors.beneficiaire]} />
+            </Field>
+
+            {/* ── 6. Numéro de police ───────────────────────────────── */}
+            <Field>
+              <FieldLabel
+                htmlFor="contrat-edit-numeroContrat"
+                className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1.5 text-xs font-bold"
+              >
+                <span>6. Numéro de Police contractuelle</span>
+                <span className="text-destructive font-bold">*</span>
+              </FieldLabel>
+              <Controller
+                name="numeroContrat"
+                control={editForm.control}
+                render={({ field }) => (
+                  <Input
+                    {...field}
+                    id="contrat-edit-numeroContrat"
+                    type="text"
+                    placeholder="Ex: C-2026-004"
+                    className="border-input dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border p-2 font-mono text-xs focus:outline-none"
+                  />
+                )}
+              />
+              <FieldError errors={[editForm.formState.errors.numeroContrat]} />
+            </Field>
+
+            {/* ── 7. Prime + Franchise ──────────────────────────────── */}
+            <div className="grid grid-cols-2 gap-3">
+              <Field>
+                <FieldLabel
+                  htmlFor="contrat-edit-montantPrime"
+                  className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold"
+                >
+                  <DollarSign className="text-primary h-3 w-3" />
+                  <span>Prime Annuelle (DT)</span>
+                  <span className="text-destructive font-bold">*</span>
+                </FieldLabel>
+                <Controller
+                  name="montantPrime"
+                  control={editForm.control}
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      id="contrat-edit-montantPrime"
+                      type="number"
+                      min="1"
+                      step="0.01"
+                      placeholder="Ex: 650"
+                      className="border-input dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border p-2 text-xs focus:outline-none"
+                    />
+                  )}
+                />
+                <FieldError errors={[editForm.formState.errors.montantPrime]} />
+              </Field>
+              <Field>
+                <FieldLabel
+                  htmlFor="contrat-edit-franchise"
+                  className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold"
+                >
+                  <DollarSign className="text-muted-foreground h-3 w-3" />
+                  <span>Franchise (DT)</span>
+                  <span className="text-muted-foreground ml-auto text-[9px] font-normal">
+                    Optionnel
+                  </span>
+                </FieldLabel>
+                <Controller
+                  name="franchise"
+                  control={editForm.control}
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      id="contrat-edit-franchise"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="Ex: 150"
+                      className="border-input dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border p-2 text-xs focus:outline-none"
+                    />
+                  )}
+                />
+                <FieldError errors={[editForm.formState.errors.franchise]} />
+              </Field>
+            </div>
+
+            {/* ── 8. Dates ──────────────────────────────────────────── */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <FieldLabel
+                  htmlFor="contrat-edit-datedebut"
+                  className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold"
+                >
+                  <Calendar className="text-primary h-3 w-3" />
+                  <span>Date Début d&apos;effet</span>
+                  <span className="text-destructive font-bold">*</span>
+                </FieldLabel>
+                <Input
+                  id="contrat-edit-datedebut"
+                  type="date"
+                  value={editValues.dateDebut.split('T', 1)[0]}
+                  onChange={(e) =>
+                    editForm.setValue(
+                      'dateDebut',
+                      `${e.target.value}T00:00:00`,
+                      { shouldValidate: true }
+                    )
+                  }
+                  className="border-input dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border p-2 text-xs focus:outline-none"
+                />
+              </div>
+              <div>
+                <FieldLabel
+                  htmlFor="contrat-edit-datefin"
+                  className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold"
+                >
+                  <Calendar className="text-primary h-3 w-3" />
+                  <span>Date Fin d&apos;échéance</span>
+                  <span className="text-destructive font-bold">*</span>
+                </FieldLabel>
+                <Input
+                  id="contrat-edit-datefin"
+                  type="date"
+                  value={editValues.dateFin.split('T', 1)[0]}
+                  onChange={(e) =>
+                    editForm.setValue('dateFin', `${e.target.value}T00:00:00`, {
+                      shouldValidate: true,
+                    })
+                  }
+                  className="border-input dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border p-2 text-xs focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Submit */}
+            <div className="border-border dark:border-border flex justify-end gap-2 border-t pt-3">
               <Button
+                variant="outline"
+                type="button"
                 onClick={() => {
                   setIsEditModalOpen(false);
                   setEditTarget(undefined);
                 }}
-                className="bg-card/10 text-primary-foreground hover:bg-card/20 absolute top-4 right-4 rounded-full p-1.5 transition-colors"
+                className="rounded-xl px-4 py-2 text-xs font-semibold"
               >
-                <X className="h-4 w-4" />
+                Annuler
               </Button>
-              <div className="mb-1 flex items-center gap-2">
-                <Pencil className="text-primary h-5 w-5" />
-                <h2 className="font-serif text-lg font-bold">
-                  Modifier le Contrat d&apos;Assurance
-                </h2>
-              </div>
-              <p className="text-primary font-mono text-xs">
-                Police #{editTarget.numeroContrat || editTarget.contrat} —{' '}
-                {editTarget.contrat}
-              </p>
+              <Button
+                type="submit"
+                disabled={editLoading}
+                className="flex items-center gap-1.5 rounded-xl px-5 py-2 text-xs font-bold shadow"
+              >
+                {editLoading && (
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                )}
+                <span>Enregistrer les modifications</span>
+              </Button>
             </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-            <form
-              onSubmit={editForm.handleSubmit(handleEditContrat)}
-              className="space-y-4 p-6"
-            >
-              {/* Encart informatif */}
-              <div className="border-border bg-muted text-primary dark:border-border dark:bg-muted dark:text-primary flex items-center justify-between rounded-xl border p-3 text-xs">
-                <span>
-                  Modification des propriétés RDF et relations OWL dans{' '}
-                  <code className="font-mono">assurance.rdf</code>.
-                </span>
-                <span className="bg-muted text-primary dark:bg-muted dark:text-primary rounded-full px-2 py-0.5 text-[10px] font-bold">
-                  Édition OWL
-                </span>
-              </div>
-
-              {editFormError && (
-                <div className="border-border bg-muted text-destructive flex items-center gap-2 rounded-xl border p-3 text-xs">
-                  <ShieldAlert className="text-destructive h-4 w-4 shrink-0" />
-                  <span>{editFormError}</span>
-                </div>
-              )}
-
-              {/* ── 1. Assuré souscripteur ──────────────────────────── */}
-              <div className="border-border bg-muted space-y-1.5 rounded-xl border p-3">
-                <label className="text-primary flex items-center gap-2 text-xs font-bold">
-                  <User className="text-primary h-3.5 w-3.5" />
-                  <span>1. Assuré souscripteur</span>
-                  <span className="text-destructive font-bold">*</span>
-                  <span className="bg-muted text-destructive dark:bg-muted rounded px-1.5 py-0.5 text-[9px] font-semibold">
-                    Obligatoire
-                  </span>
-                </label>
-                <NativeSelect {...editForm.register('assure')} required>
-                  <NativeSelectOption value="">
-                    — Sélectionner un assuré (obligatoire) —
-                  </NativeSelectOption>
-                  {assuresList.map((a) => (
-                    <NativeSelectOption key={a.id} value={a.id}>
-                      {a.prenom} {a.nom} ({a.id})
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
-              </div>
-
-              {/* ── 2. Habitation ─────────────────────────────────────── */}
-              <div className="border-border bg-muted space-y-1.5 rounded-xl border p-3">
-                <label className="text-primary flex items-center gap-2 text-xs font-bold">
-                  <Home className="text-primary h-3.5 w-3.5" />
-                  <span>2. Habitation couverte</span>
-                  <span className="text-destructive font-bold">*</span>
-                  <span className="bg-muted text-destructive dark:bg-muted rounded px-1.5 py-0.5 text-[9px] font-semibold">
-                    Obligatoire
-                  </span>
-                </label>
-                <div className="grid grid-cols-4 gap-2">
-                  {HABITATIONS.map((h) => (
-                    <Button
-                      key={h.id}
-                      type="button"
-                      onClick={() => editForm.setValue('habitation', h.id)}
-                      className={cn(
-                        'flex flex-col items-center gap-1 rounded-xl border p-2 text-[11px] font-semibold transition-all',
-                        editValues.habitation === h.id
-                          ? 'border-border bg-muted text-primary ring-ring shadow-sm ring-1'
-                          : 'border-border bg-card text-muted-foreground hover:border-border'
-                      )}
-                    >
-                      <span className="text-lg">{h.icon}</span>
-                      <span>{h.label}</span>
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              {/* ── 3. Type de contrat ────────────────────────────────── */}
-              <div>
-                <label className="text-foreground dark:text-muted-foreground mb-1.5 flex items-center gap-2 text-xs font-bold">
-                  <FileCheck2 className="text-muted-foreground h-3.5 w-3.5" />
-                  <span>3. Formule de contrat</span>
-                  <span className="text-destructive font-bold">*</span>
-                </label>
-                <NativeSelect {...editForm.register('type')} required>
-                  <NativeSelectOption value="ContratProprietaire">
-                    Propriétaire (Résidence principale / secondaire)
-                  </NativeSelectOption>
-                  <NativeSelectOption value="ContratLocataire">
-                    Locataire (Risques locatifs)
-                  </NativeSelectOption>
-                  <NativeSelectOption value="ContratCopropriete">
-                    Copropriété (Immeuble / Parties communes)
-                  </NativeSelectOption>
-                </NativeSelect>
-              </div>
-
-              {/* ── 4. Garanties (multi-sélection) ───────────────────── */}
-              <div className="border-border bg-muted space-y-1.5 rounded-xl border p-3">
-                <label className="text-primary flex items-center gap-2 text-xs font-bold">
-                  <Shield className="text-primary h-3.5 w-3.5" />
-                  <span>4. Garanties souscrites</span>
-                  <span className="text-destructive font-bold">*</span>
-                  <span className="bg-muted text-destructive dark:bg-muted rounded px-1.5 py-0.5 text-[9px] font-semibold">
-                    Au moins 1
-                  </span>
-                  <span className="text-primary ml-auto text-[9px] font-normal">
-                    {editValues.garanties.length} sélectionnée
-                    {editValues.garanties.length > 1 ? 's' : ''}
-                  </span>
-                </label>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {GARANTIES_DISPONIBLES.map((g) => (
-                    <Button
-                      key={g.id}
-                      type="button"
-                      onClick={() => {
-                        const garanties = editValues.garanties.includes(g.id)
-                          ? editValues.garanties.filter(
-                              (value) => value !== g.id
-                            )
-                          : [...editValues.garanties, g.id];
-                        editForm.setValue('garanties', garanties, {
-                          shouldValidate: true,
-                        });
-                      }}
-                      className={cn(
-                        'flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-[11px] font-medium transition-all',
-                        editValues.garanties.includes(g.id)
-                          ? 'border-border bg-muted text-primary shadow-sm'
-                          : 'border-border bg-card text-muted-foreground hover:border-border'
-                      )}
-                    >
-                      <span>{g.icon}</span>
-                      <span className="flex-1">{g.label}</span>
-                      {editValues.garanties.includes(g.id) && (
-                        <CheckSquare className="text-primary h-3.5 w-3.5 shrink-0" />
-                      )}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              {/* ── 5. Bénéficiaire (facultatif) ─────────────────────── */}
-              <div>
-                <label className="text-foreground dark:text-muted-foreground mb-1.5 flex items-center gap-2 text-xs font-bold">
-                  <Users className="text-muted-foreground h-3.5 w-3.5" />
-                  <span>5. Bénéficiaire désigné</span>
-                  <span className="bg-muted text-muted-foreground dark:bg-card ml-auto rounded px-1.5 py-0.5 text-[9px] font-normal">
-                    Facultatif
-                  </span>
-                </label>
-                <NativeSelect {...editForm.register('beneficiaire')}>
-                  <NativeSelectOption value="">
-                    — Aucun bénéficiaire (facultatif) —
-                  </NativeSelectOption>
-                  {beneficiairesList.map((b) => (
-                    <NativeSelectOption key={b.id} value={b.id}>
-                      {b.prenom} {b.nom} ({b.id})
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
-              </div>
-
-              {/* ── 6. Numéro de police ───────────────────────────────── */}
-              <div>
-                <label className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1.5 text-xs font-bold">
-                  <span>6. Numéro de Police contractuelle</span>
-                  <span className="text-destructive font-bold">*</span>
-                </label>
-                <Input
-                  type="text"
-                  required
-                  {...editForm.register('numeroContrat')}
-                  placeholder="Ex: C-2026-004"
-                  className="border-input dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border p-2 font-mono text-xs focus:outline-none"
-                />
-              </div>
-
-              {/* ── 7. Prime + Franchise ──────────────────────────────── */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold">
-                    <DollarSign className="text-primary h-3 w-3" />
-                    <span>Prime Annuelle (DT)</span>
-                    <span className="text-destructive font-bold">*</span>
-                  </label>
-                  <Input
-                    type="number"
-                    required
-                    min="1"
-                    step="0.01"
-                    {...editForm.register('montantPrime')}
-                    placeholder="Ex: 650"
-                    className="border-input dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border p-2 text-xs focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold">
-                    <DollarSign className="text-muted-foreground h-3 w-3" />
-                    <span>Franchise (DT)</span>
-                    <span className="text-muted-foreground ml-auto text-[9px] font-normal">
-                      Optionnel
-                    </span>
-                  </label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    {...editForm.register('franchise')}
-                    placeholder="Ex: 150"
-                    className="border-input dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border p-2 text-xs focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* ── 8. Dates ──────────────────────────────────────────── */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold">
-                    <Calendar className="text-primary h-3 w-3" />
-                    <span>Date Début d&apos;effet</span>
-                    <span className="text-destructive font-bold">*</span>
-                  </label>
-                  <Input
-                    type="date"
-                    required
-                    value={editValues.dateDebut.split('T', 1)[0]}
-                    onChange={(e) =>
-                      editForm.setValue(
-                        'dateDebut',
-                        `${e.target.value}T00:00:00`,
-                        { shouldValidate: true }
-                      )
-                    }
-                    className="border-input dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border p-2 text-xs focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-foreground dark:text-muted-foreground mb-1 flex items-center gap-1 text-xs font-bold">
-                    <Calendar className="text-primary h-3 w-3" />
-                    <span>Date Fin d&apos;échéance</span>
-                    <span className="text-destructive font-bold">*</span>
-                  </label>
-                  <Input
-                    type="date"
-                    required
-                    value={editValues.dateFin.split('T', 1)[0]}
-                    onChange={(e) =>
-                      editForm.setValue(
-                        'dateFin',
-                        `${e.target.value}T00:00:00`,
-                        { shouldValidate: true }
-                      )
-                    }
-                    className="border-input dark:border-border dark:bg-card dark:text-foreground focus:border-border w-full rounded-xl border p-2 text-xs focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Submit */}
-              <div className="border-border dark:border-border flex justify-end gap-2 border-t pt-3">
-                <Button
-                  variant="outline"
-                  type="button"
-                  onClick={() => {
-                    setIsEditModalOpen(false);
-                    setEditTarget(undefined);
-                  }}
-                  className="rounded-xl px-4 py-2 text-xs font-semibold"
-                >
-                  Annuler
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={editLoading}
-                  className="flex items-center gap-1.5 rounded-xl px-5 py-2 text-xs font-bold shadow"
-                >
-                  {editLoading && (
-                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                  )}
-                  <span>Enregistrer les modifications</span>
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Confirmation de suppression (Admin) */}
+      <AlertDialog
+        open={Boolean(deleteContratTarget)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteContratTarget(undefined);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer le contrat ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Confirmer la suppression définitive du contrat{' '}
+              {deleteContratTarget} de l&apos;ontologie ? Cette action est
+              irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDeleteContrat}>
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

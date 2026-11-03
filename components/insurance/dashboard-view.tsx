@@ -94,16 +94,16 @@ export function DashboardView({ onSelectTab, userRole }: DashboardViewProps) {
             </Button>
             <Button
               onClick={() => onSelectTab('dommages')}
-              className="inline-flex items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-500/20 px-4 py-2 text-xs font-semibold text-amber-200 backdrop-blur transition-colors hover:bg-amber-500/30"
+              className="border-primary/30 bg-primary/20 text-primary-foreground hover:bg-primary/30 inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold backdrop-blur transition-colors"
             >
-              <AlertTriangle className="h-4 w-4 text-amber-300" />
+              <AlertTriangle className="text-primary h-4 w-4" />
               <span>Dommages ({dommagesCount})</span>
             </Button>
             <Button
               onClick={() => onSelectTab('clauses')}
-              className="inline-flex items-center gap-2 rounded-xl border border-purple-400/30 bg-purple-500/20 px-4 py-2 text-xs font-semibold text-purple-200 backdrop-blur transition-colors hover:bg-purple-500/30"
+              className="border-primary/30 bg-primary/20 text-primary-foreground hover:bg-primary/30 inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold backdrop-blur transition-colors"
             >
-              <Scale className="h-4 w-4 text-purple-300" />
+              <Scale className="text-primary h-4 w-4" />
               <span>Clauses ({clausesCount})</span>
             </Button>
           </div>

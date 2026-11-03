@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Field, FieldLabel, FieldError } from '@/components/ui/field';
 import {
   Dialog,
   DialogContent,
@@ -11,12 +12,30 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 import React, { useState, useMemo } from 'react';
 import { useForm, Controller } from 'react-hook-form';
@@ -369,15 +388,22 @@ export function SinistresView({ userRole = 'Assure' }: SinistresViewProps) {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Supprimer ce sinistre ?')) return;
+  const [deleteTargetId, setDeleteTargetId] = useState<string | undefined>();
+
+  const handleDelete = (id: string) => {
+    setDeleteTargetId(id);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTargetId) return;
     try {
-      await deleteMutation.mutateAsync(id);
+      await deleteMutation.mutateAsync(deleteTargetId);
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'Erreur');
       return;
     }
-    if (detailTarget?.sinistre === id) setDetailTarget(undefined);
+    if (detailTarget?.sinistre === deleteTargetId) setDetailTarget(undefined);
+    setDeleteTargetId(undefined);
   };
 
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
@@ -544,130 +570,136 @@ export function SinistresView({ userRole = 'Assure' }: SinistresViewProps) {
             detailTarget && 'hidden lg:block'
           )}
         >
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50">
-                <tr>
-                  <th className="px-4 py-3 text-left font-semibold">Type</th>
-                  <th className="px-4 py-3 text-left font-semibold">Date</th>
-                  <th className="px-4 py-3 text-left font-semibold">Lieu</th>
-                  <th className="px-4 py-3 text-left font-semibold">Statut</th>
-                  <th className="px-4 py-3 text-left font-semibold">Assuré</th>
-                  <th className="px-4 py-3 text-right font-semibold">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {sinistresQuery.isLoading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={i} className="border-border border-t">
-                      {Array.from({ length: 6 }).map((_, j) => (
-                        <td key={j} className="px-4 py-3">
-                          <div className="bg-muted h-4 animate-pulse rounded" />
-                        </td>
-                      ))}
-                    </tr>
-                  ))
-                ) : filtered.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="text-muted-foreground px-4 py-12 text-center"
-                    >
-                      <AlertTriangle className="mx-auto mb-2 h-8 w-8 opacity-30" />
-                      <p className="font-medium">Aucun sinistre</p>
-                      <p className="mt-1 text-xs">
-                        {search ||
-                        typeFilter !== 'all' ||
-                        statutFilter !== 'all'
-                          ? 'Essayez de modifier vos filtres'
-                          : canManage
-                            ? 'Déclarez le premier sinistre'
-                            : "Aucun sinistre dans l'ontologie"}
-                      </p>
-                    </td>
-                  </tr>
-                ) : (
-                  filtered.map((s) => (
-                    <tr
-                      key={s.sinistre}
-                      onClick={() =>
-                        setDetailTarget(
-                          detailTarget?.sinistre === s.sinistre ? undefined : s
-                        )
-                      }
-                      className={cn(
-                        'border-border hover:bg-muted/40 cursor-pointer border-t transition-colors',
-                        detailTarget?.sinistre === s.sinistre && 'bg-primary/5'
-                      )}
-                    >
-                      <td className="px-4 py-3">
-                        <TypeBadge type={s.typeSinistre} />
-                      </td>
-                      <td className="px-4 py-3 text-sm">
+          <Table className="text-sm">
+            <TableHeader className="bg-muted/50">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="h-auto px-4 py-3 text-left font-semibold">
+                  Type
+                </TableHead>
+                <TableHead className="h-auto px-4 py-3 text-left font-semibold">
+                  Date
+                </TableHead>
+                <TableHead className="h-auto px-4 py-3 text-left font-semibold">
+                  Lieu
+                </TableHead>
+                <TableHead className="h-auto px-4 py-3 text-left font-semibold">
+                  Statut
+                </TableHead>
+                <TableHead className="h-auto px-4 py-3 text-left font-semibold">
+                  Assuré
+                </TableHead>
+                <TableHead className="h-auto px-4 py-3 text-right font-semibold">
+                  Actions
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sinistresQuery.isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i} className="border-border border-t">
+                    {Array.from({ length: 6 }).map((_, j) => (
+                      <TableCell key={j} className="px-4 py-3">
+                        <div className="bg-muted h-4 animate-pulse rounded" />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={6}
+                    className="text-muted-foreground px-4 py-12 text-center whitespace-normal"
+                  >
+                    <AlertTriangle className="mx-auto mb-2 h-8 w-8 opacity-30" />
+                    <p className="font-medium">Aucun sinistre</p>
+                    <p className="mt-1 text-xs">
+                      {search || typeFilter !== 'all' || statutFilter !== 'all'
+                        ? 'Essayez de modifier vos filtres'
+                        : canManage
+                          ? 'Déclarez le premier sinistre'
+                          : "Aucun sinistre dans l'ontologie"}
+                    </p>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filtered.map((s) => (
+                  <TableRow
+                    key={s.sinistre}
+                    onClick={() =>
+                      setDetailTarget(
+                        detailTarget?.sinistre === s.sinistre ? undefined : s
+                      )
+                    }
+                    className={cn(
+                      'border-border hover:bg-muted/40 cursor-pointer border-t',
+                      detailTarget?.sinistre === s.sinistre && 'bg-primary/5'
+                    )}
+                  >
+                    <TableCell className="px-4 py-3">
+                      <TypeBadge type={s.typeSinistre} />
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-sm">
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        <CalendarDays className="h-3.5 w-3.5 shrink-0" />
+                        {formatDate(s.dateSinistre)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-sm">
+                      {s.lieuSinistre ? (
                         <span className="text-muted-foreground flex items-center gap-1">
-                          <CalendarDays className="h-3.5 w-3.5 shrink-0" />
-                          {formatDate(s.dateSinistre)}
+                          <MapPin className="h-3.5 w-3.5 shrink-0" />
+                          {s.lieuSinistre}
                         </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        {s.lieuSinistre ? (
-                          <span className="text-muted-foreground flex items-center gap-1">
-                            <MapPin className="h-3.5 w-3.5 shrink-0" />
-                            {s.lieuSinistre}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="px-4 py-3">
+                      <StatutBadge statut={s.statut} />
+                    </TableCell>
+                    <TableCell className="text-muted-foreground px-4 py-3 text-sm">
+                      {s.assureNom || s.assure || '—'}
+                    </TableCell>
+                    <TableCell
+                      className="px-4 py-3 text-right"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => setDetailTarget(s)}
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                        {canManage && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0"
+                              onClick={() => openEdit(s)}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0"
+                              onClick={() => void handleDelete(s.sinistre)}
+                            >
+                              <Trash2 className="text-destructive h-3.5 w-3.5" />
+                            </Button>
+                          </>
                         )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <StatutBadge statut={s.statut} />
-                      </td>
-                      <td className="text-muted-foreground px-4 py-3 text-sm">
-                        {s.assureNom || s.assure || '—'}
-                      </td>
-                      <td
-                        className="px-4 py-3 text-right"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0"
-                            onClick={() => setDetailTarget(s)}
-                          >
-                            <ChevronRight className="h-4 w-4" />
-                          </Button>
-                          {canManage && (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 p-0"
-                                onClick={() => openEdit(s)}
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 p-0"
-                                onClick={() => void handleDelete(s.sinistre)}
-                              >
-                                <Trash2 className="text-destructive h-3.5 w-3.5" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
 
         {/* Detail Panel */}
@@ -847,33 +879,49 @@ export function SinistresView({ userRole = 'Assure' }: SinistresViewProps) {
               </div>
               <div className="space-y-1.5">
                 <Label>Date du sinistre</Label>
-                <Input type="date" {...form.register('dateSinistre')} />
-                {form.formState.errors.dateSinistre && (
-                  <p className="text-destructive text-xs">
-                    {form.formState.errors.dateSinistre.message}
-                  </p>
-                )}
+                <Controller
+                  name="dateSinistre"
+                  control={form.control}
+                  render={({ field }) => <Input type="date" {...field} />}
+                />
+                <FieldError errors={[form.formState.errors.dateSinistre]} />
               </div>
             </div>
 
             {/* Lieu */}
-            <div className="space-y-1.5">
-              <Label>Lieu</Label>
-              <Input
-                {...form.register('lieuSinistre')}
-                placeholder="Ex: 12 Rue des Acacias, Paris"
+            <Field>
+              <FieldLabel>Lieu</FieldLabel>
+              <Controller
+                name="lieuSinistre"
+                control={form.control}
+                render={({ field }) => (
+                  <Input
+                    {...field}
+                    placeholder="Ex: 12 Rue des Acacias, Paris"
+                  />
+                )}
               />
-            </div>
+              <FieldError errors={[form.formState.errors.lieuSinistre]} />
+            </Field>
 
             {/* Description */}
-            <div className="space-y-1.5">
-              <Label>Description</Label>
-              <Textarea
-                {...form.register('descriptionSinistre')}
-                placeholder="Décrivez les circonstances du sinistre..."
-                rows={3}
+            <Field>
+              <FieldLabel>Description</FieldLabel>
+              <Controller
+                name="descriptionSinistre"
+                control={form.control}
+                render={({ field }) => (
+                  <Textarea
+                    {...field}
+                    placeholder="Décrivez les circonstances du sinistre..."
+                    rows={3}
+                  />
+                )}
               />
-            </div>
+              <FieldError
+                errors={[form.formState.errors.descriptionSinistre]}
+              />
+            </Field>
 
             {/* Statut + Cause */}
             <div className="grid grid-cols-2 gap-3">
@@ -908,10 +956,14 @@ export function SinistresView({ userRole = 'Assure' }: SinistresViewProps) {
               </div>
               <div className="space-y-1.5">
                 <Label>Cause</Label>
-                <Input
-                  {...form.register('causeSinistre')}
-                  placeholder="Cause supposée..."
+                <Controller
+                  name="causeSinistre"
+                  control={form.control}
+                  render={({ field }) => (
+                    <Input {...field} placeholder="Cause supposée..." />
+                  )}
                 />
+                <FieldError errors={[form.formState.errors.causeSinistre]} />
               </div>
             </div>
 
@@ -968,6 +1020,30 @@ export function SinistresView({ userRole = 'Assure' }: SinistresViewProps) {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmation de suppression */}
+      <AlertDialog
+        open={Boolean(deleteTargetId)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTargetId(undefined);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer le sinistre ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action retirera définitivement le sinistre de
+              l&apos;ontologie.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete}>
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -78,7 +78,7 @@ export function Sidebar({
       icon: AlertTriangle,
       badge: dommagesCount ? `${dommagesCount}` : undefined,
       badgeColor:
-        'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300',
+        'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary',
       description: 'Matériels, Corporels & Immatériels',
     },
     {
@@ -87,7 +87,7 @@ export function Sidebar({
       icon: Scale,
       badge: clausesCount ? `${clausesCount}` : undefined,
       badgeColor:
-        'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300',
+        'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary',
       description: 'Exclusions, Franchises & Obligations',
     },
     ...(userRole === 'Assure'
@@ -99,7 +99,7 @@ export function Sidebar({
             icon: Terminal,
             badge: 'IA',
             badgeColor:
-              'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300',
+              'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary',
             description: 'Interrogation sémantique en français',
           },
         ]),
@@ -111,7 +111,7 @@ export function Sidebar({
             icon: Code2,
             badge: '12',
             badgeColor:
-              'bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300',
+              'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary',
             description: 'Console SPARQL interactive (démo technique)',
           },
         ]
