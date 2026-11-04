@@ -16,6 +16,7 @@ import { listSparqlExamples, runSparql } from '@/lib/services/sparql';
 import { cn } from '@/lib/utils';
 import {
   isSparqlSelectResult,
+  isSparqlAskResult,
   type SparqlSelectResult,
 } from '@/lib/types/sparql';
 import type { SparqlExample } from '@/lib/types/sparql';
@@ -65,6 +66,7 @@ export function SparqlExplorerView({
   const [query, setQuery] = useState('');
   const [result, setResult] = useState<SparqlSelectResult | undefined>();
   const [error, setError] = useState<string | undefined>();
+  const [info, setInfo] = useState<string | undefined>();
   const [copied, setCopied] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>('Tous');
   const [expandedEx, setExpandedEx] = useState<string | undefined>();
@@ -91,11 +93,20 @@ export function SparqlExplorerView({
     if (!q.trim()) return;
     setError(undefined);
     setResult(undefined);
+    setInfo(undefined);
     void runMutation
       .mutateAsync(q)
       .then((data) => {
+        if (isSparqlAskResult(data)) {
+          setInfo(`Résultat booléen : ${data.boolean ? 'vrai' : 'faux'}`);
+          return;
+        }
         if (!isSparqlSelectResult(data)) {
-          setError(`Résultat booléen : ${data.boolean ? 'vrai' : 'faux'}`);
+          const detail =
+            data.type === 'UPDATE'
+              ? `Requête exécutée : ${data.type.toLowerCase()} (${data.total_triples} triplets)`
+              : `Requête exécutée : ${data.type.toLowerCase()} (${data.count} résultat(s))`;
+          setInfo(detail);
           return;
         }
         setResult({
@@ -122,6 +133,7 @@ export function SparqlExplorerView({
     setQuery(ex.query);
     setResult(undefined);
     setError(undefined);
+    setInfo(undefined);
     if (textareaRef.current) textareaRef.current.focus();
   };
 
@@ -406,6 +418,13 @@ export function SparqlExplorerView({
                   {error}
                 </p>
               </div>
+            </div>
+          )}
+
+          {info && (
+            <div className="border-border bg-muted dark:border-border dark:bg-muted flex items-start gap-3 rounded-2xl border px-4 py-3">
+              <CheckCircle2 className="text-primary mt-0.5 h-4 w-4 shrink-0" />
+              <p className="text-foreground mt-0.5 font-mono text-xs">{info}</p>
             </div>
           )}
 

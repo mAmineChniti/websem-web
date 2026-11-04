@@ -77,8 +77,18 @@ const QUESTIONS_BY_ROLE: Record<string, string[]> = {
   ],
 };
 
+// Vocabulaire WIEM - Habitations et Indemnisations (section séparée)
+const WIEM_HABITATIONS_INDEMNISATIONS_QUESTIONS = [
+  'Liste toutes les habitations assurées',
+  'Liste toutes les indemnisations',
+];
+
 function getPresetQuestions(role: string): string[] {
-  return QUESTIONS_BY_ROLE[role] || QUESTIONS_BY_ROLE['Admin'];
+  const roleQuestions = QUESTIONS_BY_ROLE[role] || QUESTIONS_BY_ROLE['Admin'];
+  if (role === 'Admin') {
+    return [...roleQuestions, ...WIEM_HABITATIONS_INDEMNISATIONS_QUESTIONS];
+  }
+  return roleQuestions;
 }
 
 function isPersonRow(row: NullableStringRecord): boolean {
@@ -108,7 +118,10 @@ function isPersonRow(row: NullableStringRecord): boolean {
     row.dateDeclaration ||
     row.statutDeclaration;
   const isIndemnisation =
-    row.indemnisation || row.typeIndemnisation || row.montantIndemnisation;
+    row.indemnisation ||
+    row.typeIndemnisation ||
+    row.montantIndemnise ||
+    row.tauxIndemnisation;
   if (
     isSinistre ||
     isGarantie ||
@@ -122,6 +135,18 @@ function isPersonRow(row: NullableStringRecord): boolean {
 }
 
 function isContratRow(row: NullableStringRecord): boolean {
+  if (
+    row.habitation ||
+    row.typeHabitation ||
+    row.adresseBien ||
+    row.superficie ||
+    row.indemnisation ||
+    row.typeIndemnisation ||
+    row.montantIndemnise ||
+    row.tauxIndemnisation
+  ) {
+    return false;
+  }
   const str = JSON.stringify(row).toLowerCase();
   return (
     (str.includes('contrat') ||
@@ -792,6 +817,10 @@ export function SemanticWebView({ userRole = 'Admin' }: { userRole?: string }) {
         r.dateDebut ||
         r.plafond ||
         r.montant ||
+        r.montantIndemnise ||
+        r.tauxIndemnisation ||
+        r.adresseBien ||
+        r.valeurBien ||
         r.description ||
         r.descriptionSinistre ||
         r.lieuSinistre ||

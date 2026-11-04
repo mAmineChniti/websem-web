@@ -14,6 +14,8 @@ import {
   Code2,
   ShieldCheck,
   Scale,
+  House,
+  BadgeDollarSign,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -87,6 +89,24 @@ export function Sidebar({
       badge: clausesCount ? `${clausesCount}` : undefined,
       description: 'Exclusions, Franchises & Obligations',
     },
+    ...(['Assure', 'Admin'].includes(userRole)
+      ? [
+          {
+            id: 'habitations',
+            label: 'Habitations',
+            icon: House,
+            badge: undefined,
+            description: 'Maisons, appartements, studios et villas',
+          },
+          {
+            id: 'indemnisations',
+            label: 'Indemnisations',
+            icon: BadgeDollarSign,
+            badge: undefined,
+            description: 'Totale, partielle et refusée',
+          },
+        ]
+      : []),
     {
       id: 'sinistres',
       label: 'Sinistres',

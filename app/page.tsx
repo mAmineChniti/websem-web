@@ -15,6 +15,8 @@ import { AuthModal } from '@/components/auth-modal';
 import { LandingPage } from '@/components/landing-page';
 import { DommagesView } from '@/components/insurance/dommages-view';
 import { ClausesView } from '@/components/insurance/clauses-view';
+import { HabitationsView } from '@/components/insurance/habitations-view';
+import { IndemnisationsView } from '@/components/insurance/indemnisations-view';
 import { listContrats } from '@/lib/services/contrats';
 import { listPersonnes } from '@/lib/services/personnes';
 import { me } from '@/lib/services/auth';
@@ -223,6 +225,17 @@ export default function Home() {
             <ClausesView
               userRole={user?.role}
               onCountChange={setClausesCount}
+            />
+          )}
+
+          {currentTab === 'habitations' && (
+            <HabitationsView userRole={user?.role} currentUser={displayUser} />
+          )}
+
+          {currentTab === 'indemnisations' && (
+            <IndemnisationsView
+              userRole={user?.role}
+              currentUser={displayUser}
             />
           )}
         </main>
