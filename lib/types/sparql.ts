@@ -23,7 +23,22 @@ export interface SparqlAskResult {
   boolean: boolean;
 }
 
-export type SparqlResult = SparqlSelectResult | SparqlAskResult;
+export interface SparqlUpdateResult {
+  type: 'UPDATE';
+  message: string;
+  total_triples: number;
+  query: string;
+}
+
+export interface SparqlGraphResult {
+  type: 'CONSTRUCT' | 'DESCRIBE';
+  count: number;
+  results: string;
+  query: string;
+}
+
+export type SparqlResult =
+  SparqlSelectResult | SparqlAskResult | SparqlUpdateResult | SparqlGraphResult;
 
 export function isSparqlAskResult(
   result: SparqlResult
@@ -34,5 +49,5 @@ export function isSparqlAskResult(
 export function isSparqlSelectResult(
   result: SparqlResult
 ): result is SparqlSelectResult {
-  return result.type !== 'ASK';
+  return 'results' in result && Array.isArray(result.results);
 }

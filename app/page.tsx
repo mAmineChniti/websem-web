@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Header } from '@/components/header';
 import { Sidebar } from '@/components/sidebar';
@@ -15,6 +15,8 @@ import { AuthModal } from '@/components/auth-modal';
 import { LandingPage } from '@/components/landing-page';
 import { DommagesView } from '@/components/insurance/dommages-view';
 import { ClausesView } from '@/components/insurance/clauses-view';
+import { HabitationsView } from '@/components/insurance/habitations-view';
+import { IndemnisationsView } from '@/components/insurance/indemnisations-view';
 import { listContrats } from '@/lib/services/contrats';
 import { listPersonnes } from '@/lib/services/personnes';
 import { me } from '@/lib/services/auth';
@@ -46,14 +48,18 @@ export default function Home() {
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
 
   // Security & Authentication State
-  const [user, setUser] = useState<UserSession | undefined>(() => {
-    if (globalThis.window === undefined) return;
-    const saved = globalThis.localStorage.getItem('hestia_session');
-    if (!saved) return;
-    return parseStoredSession(saved);
-  });
+  const [user, setUser] = useState<UserSession>();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+
+  useEffect(() => {
+    const saved = globalThis.localStorage.getItem('hestia_session');
+    if (!saved) return;
+    const timeoutId = globalThis.window.setTimeout(() => {
+      setUser(parseStoredSession(saved));
+    }, 0);
+    return () => globalThis.window.clearTimeout(timeoutId);
+  }, []);
 
   const personnesQuery = useQuery({
     queryKey: ['personnes'],
@@ -223,6 +229,17 @@ export default function Home() {
             <ClausesView
               userRole={user?.role}
               onCountChange={setClausesCount}
+            />
+          )}
+
+          {currentTab === 'habitations' && (
+            <HabitationsView userRole={user?.role} currentUser={displayUser} />
+          )}
+
+          {currentTab === 'indemnisations' && (
+            <IndemnisationsView
+              userRole={user?.role}
+              currentUser={displayUser}
             />
           )}
         </main>

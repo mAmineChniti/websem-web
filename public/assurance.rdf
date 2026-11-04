@@ -1048,9 +1048,214 @@
         <Assuarnce_et_Gestion_des_Sinistres:descriptionSinistre>Incendie dans la cuisine suite à un court-circuit</Assuarnce_et_Gestion_des_Sinistres:descriptionSinistre>
         <Assuarnce_et_Gestion_des_Sinistres:lieuSinistre>12 rue des Oliviers, Tunis</Assuarnce_et_Gestion_des_Sinistres:lieuSinistre>
     </owl:NamedIndividual>
+    <!-- AJOUT WIEM - HABITATIONS ET INDEMNISATIONS (additif) -->
+
+    <owl:ObjectProperty rdf:about="http://www.semanticweb.org/asus/ontologies/2026/8/Assuarnce_et_Gestion_des_Sinistres#concerneHabitation">
+        <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#Indemnisation"/>
+        <rdfs:range rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#habitation"/>
+    </owl:ObjectProperty>
+
+    <owl:ObjectProperty rdf:about="http://www.semanticweb.org/asus/ontologies/2026/8/Assuarnce_et_Gestion_des_Sinistres#estPossedeePar">
+        <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#habitation"/>
+        <rdfs:range rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#Assure"/>
+    </owl:ObjectProperty>
+
+    <owl:Class rdf:about="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#Maison">
+        <owl:disjointWith rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#Appartement"/>
+        <owl:disjointWith rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#Studio"/>
+        <owl:disjointWith rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#Villa"/>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#Appartement">
+        <owl:disjointWith rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#Studio"/>
+        <owl:disjointWith rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#Villa"/>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#Studio">
+        <owl:disjointWith rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#Villa"/>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#habitation">
+        <owl:equivalentClass>
+            <owl:Class>
+                <owl:unionOf rdf:parseType="Collection">
+                    <rdf:Description rdf:about="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#Maison"/>
+                    <rdf:Description rdf:about="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#Appartement"/>
+                    <rdf:Description rdf:about="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#Studio"/>
+                    <rdf:Description rdf:about="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#Villa"/>
+                </owl:unionOf>
+            </owl:Class>
+        </owl:equivalentClass>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#IndemnisationTotale">
+        <owl:equivalentClass>
+            <owl:Class>
+                <owl:intersectionOf rdf:parseType="Collection">
+                    <rdf:Description rdf:about="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#Indemnisation"/>
+                    <owl:Restriction>
+                        <owl:onProperty rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/Assuarnce_et_Gestion_des_Sinistres#tauxIndemnisation"/>
+                        <owl:hasValue rdf:datatype="http://www.w3.org/2001/XMLSchema#float">100.0</owl:hasValue>
+                    </owl:Restriction>
+                </owl:intersectionOf>
+            </owl:Class>
+        </owl:equivalentClass>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#IndemnisationPartielle">
+        <owl:equivalentClass>
+            <owl:Class>
+                <owl:intersectionOf rdf:parseType="Collection">
+                    <rdf:Description rdf:about="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#Indemnisation"/>
+                    <owl:Restriction>
+                        <owl:onProperty rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/Assuarnce_et_Gestion_des_Sinistres#tauxIndemnisation"/>
+                        <owl:someValuesFrom>
+                            <rdfs:Datatype>
+                                <owl:onDatatype rdf:resource="http://www.w3.org/2001/XMLSchema#float"/>
+                                <owl:withRestrictions rdf:parseType="Collection">
+                                    <rdf:Description>
+                                        <xsd:minExclusive rdf:datatype="http://www.w3.org/2001/XMLSchema#float">0.0</xsd:minExclusive>
+                                        <xsd:maxExclusive rdf:datatype="http://www.w3.org/2001/XMLSchema#float">100.0</xsd:maxExclusive>
+                                    </rdf:Description>
+                                </owl:withRestrictions>
+                            </rdfs:Datatype>
+                        </owl:someValuesFrom>
+                    </owl:Restriction>
+                </owl:intersectionOf>
+            </owl:Class>
+        </owl:equivalentClass>
+    </owl:Class>
+
+    <owl:Class rdf:about="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#IndemnisationRefusee">
+        <owl:equivalentClass>
+            <owl:Class>
+                <owl:intersectionOf rdf:parseType="Collection">
+                    <rdf:Description rdf:about="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#Indemnisation"/>
+                    <owl:Restriction>
+                        <owl:onProperty rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/Assuarnce_et_Gestion_des_Sinistres#montantIndemnise"/>
+                        <owl:hasValue rdf:datatype="http://www.w3.org/2001/XMLSchema#float">0.0</owl:hasValue>
+                    </owl:Restriction>
+                </owl:intersectionOf>
+            </owl:Class>
+        </owl:equivalentClass>
+    </owl:Class>
+
+    <owl:NamedIndividual rdf:about="http://www.semanticweb.org/asus/ontologies/2026/8/Assuarnce_et_Gestion_des_Sinistres#MaisonWiem1">
+        <rdfs:label>Maison Tunis</rdfs:label>
+        <rdf:type rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#Maison"/>
+        <Assuarnce_et_Gestion_des_Sinistres:adresseBien>10 rue de la Liberté, Tunis</Assuarnce_et_Gestion_des_Sinistres:adresseBien>
+        <Assuarnce_et_Gestion_des_Sinistres:superficie rdf:datatype="http://www.w3.org/2001/XMLSchema#float">145.0</Assuarnce_et_Gestion_des_Sinistres:superficie>
+
+        <Assuarnce_et_Gestion_des_Sinistres:valeurBien rdf:datatype="http://www.w3.org/2001/XMLSchema#float">280000.0</Assuarnce_et_Gestion_des_Sinistres:valeurBien>
+        <Assuarnce_et_Gestion_des_Sinistres:estPossedeePar rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/Assuarnce_et_Gestion_des_Sinistres#Assure1"/>
+    </owl:NamedIndividual>
+
+    <owl:NamedIndividual rdf:about="http://www.semanticweb.org/asus/ontologies/2026/8/Assuarnce_et_Gestion_des_Sinistres#MaisonWiem2">
+        <rdfs:label>Maison Nabeul</rdfs:label>
+        <rdf:type rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#Maison"/>
+        <Assuarnce_et_Gestion_des_Sinistres:adresseBien>5 avenue Habib Bourguiba, Nabeul</Assuarnce_et_Gestion_des_Sinistres:adresseBien>
+        <Assuarnce_et_Gestion_des_Sinistres:superficie rdf:datatype="http://www.w3.org/2001/XMLSchema#float">170.0</Assuarnce_et_Gestion_des_Sinistres:superficie>
+
+        <Assuarnce_et_Gestion_des_Sinistres:valeurBien rdf:datatype="http://www.w3.org/2001/XMLSchema#float">320000.0</Assuarnce_et_Gestion_des_Sinistres:valeurBien>
+        <Assuarnce_et_Gestion_des_Sinistres:estPossedeePar rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/Assuarnce_et_Gestion_des_Sinistres#Assure1"/>
+    </owl:NamedIndividual>
+
+    <owl:NamedIndividual rdf:about="http://www.semanticweb.org/asus/ontologies/2026/8/Assuarnce_et_Gestion_des_Sinistres#AppartementWiem1">
+        <rdfs:label>Appartement Ariana</rdfs:label>
+        <rdf:type rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#Appartement"/>
+        <Assuarnce_et_Gestion_des_Sinistres:adresseBien>18 rue des Jasmins, Ariana</Assuarnce_et_Gestion_des_Sinistres:adresseBien>
+        <Assuarnce_et_Gestion_des_Sinistres:superficie rdf:datatype="http://www.w3.org/2001/XMLSchema#float">92.0</Assuarnce_et_Gestion_des_Sinistres:superficie>
+
+        <Assuarnce_et_Gestion_des_Sinistres:valeurBien rdf:datatype="http://www.w3.org/2001/XMLSchema#float">180000.0</Assuarnce_et_Gestion_des_Sinistres:valeurBien>
+        <Assuarnce_et_Gestion_des_Sinistres:estPossedeePar rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/Assuarnce_et_Gestion_des_Sinistres#Assure1"/>
+    </owl:NamedIndividual>
+
+    <owl:NamedIndividual rdf:about="http://www.semanticweb.org/asus/ontologies/2026/8/Assuarnce_et_Gestion_des_Sinistres#AppartementWiem2">
+        <rdfs:label>Appartement Tunis</rdfs:label>
+        <rdf:type rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#Appartement"/>
+        <Assuarnce_et_Gestion_des_Sinistres:adresseBien>22 rue de Marseille, Tunis</Assuarnce_et_Gestion_des_Sinistres:adresseBien>
+        <Assuarnce_et_Gestion_des_Sinistres:superficie rdf:datatype="http://www.w3.org/2001/XMLSchema#float">108.0</Assuarnce_et_Gestion_des_Sinistres:superficie>
+
+        <Assuarnce_et_Gestion_des_Sinistres:valeurBien rdf:datatype="http://www.w3.org/2001/XMLSchema#float">210000.0</Assuarnce_et_Gestion_des_Sinistres:valeurBien>
+        <Assuarnce_et_Gestion_des_Sinistres:estPossedeePar rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/Assuarnce_et_Gestion_des_Sinistres#Assure1"/>
+    </owl:NamedIndividual>
+
+    <owl:NamedIndividual rdf:about="http://www.semanticweb.org/asus/ontologies/2026/8/Assuarnce_et_Gestion_des_Sinistres#StudioWiem1">
+        <rdfs:label>Studio Tunis</rdfs:label>
+        <rdf:type rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#Studio"/>
+        <Assuarnce_et_Gestion_des_Sinistres:adresseBien>3 cité El Menzah, Tunis</Assuarnce_et_Gestion_des_Sinistres:adresseBien>
+        <Assuarnce_et_Gestion_des_Sinistres:superficie rdf:datatype="http://www.w3.org/2001/XMLSchema#float">38.0</Assuarnce_et_Gestion_des_Sinistres:superficie>
+
+        <Assuarnce_et_Gestion_des_Sinistres:valeurBien rdf:datatype="http://www.w3.org/2001/XMLSchema#float">95000.0</Assuarnce_et_Gestion_des_Sinistres:valeurBien>
+        <Assuarnce_et_Gestion_des_Sinistres:estPossedeePar rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/Assuarnce_et_Gestion_des_Sinistres#Assure1"/>
+    </owl:NamedIndividual>
+
+    <owl:NamedIndividual rdf:about="http://www.semanticweb.org/asus/ontologies/2026/8/Assuarnce_et_Gestion_des_Sinistres#StudioWiem2">
+        <rdfs:label>Studio Sousse</rdfs:label>
+        <rdf:type rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#Studio"/>
+        <Assuarnce_et_Gestion_des_Sinistres:adresseBien>9 rue Ibn Khaldoun, Sousse</Assuarnce_et_Gestion_des_Sinistres:adresseBien>
+        <Assuarnce_et_Gestion_des_Sinistres:superficie rdf:datatype="http://www.w3.org/2001/XMLSchema#float">42.0</Assuarnce_et_Gestion_des_Sinistres:superficie>
+
+        <Assuarnce_et_Gestion_des_Sinistres:valeurBien rdf:datatype="http://www.w3.org/2001/XMLSchema#float">110000.0</Assuarnce_et_Gestion_des_Sinistres:valeurBien>
+        <Assuarnce_et_Gestion_des_Sinistres:estPossedeePar rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/Assuarnce_et_Gestion_des_Sinistres#Assure1"/>
+    </owl:NamedIndividual>
+
+    <owl:NamedIndividual rdf:about="http://www.semanticweb.org/asus/ontologies/2026/8/Assuarnce_et_Gestion_des_Sinistres#VillaWiem1">
+        <rdfs:label>Villa Carthage</rdfs:label>
+        <rdf:type rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#Villa"/>
+        <Assuarnce_et_Gestion_des_Sinistres:adresseBien>7 lotissement Les Jardins, Carthage</Assuarnce_et_Gestion_des_Sinistres:adresseBien>
+        <Assuarnce_et_Gestion_des_Sinistres:superficie rdf:datatype="http://www.w3.org/2001/XMLSchema#float">260.0</Assuarnce_et_Gestion_des_Sinistres:superficie>
+
+        <Assuarnce_et_Gestion_des_Sinistres:valeurBien rdf:datatype="http://www.w3.org/2001/XMLSchema#float">650000.0</Assuarnce_et_Gestion_des_Sinistres:valeurBien>
+        <Assuarnce_et_Gestion_des_Sinistres:estPossedeePar rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/Assuarnce_et_Gestion_des_Sinistres#Assure1"/>
+    </owl:NamedIndividual>
+
+    <owl:NamedIndividual rdf:about="http://www.semanticweb.org/asus/ontologies/2026/8/Assuarnce_et_Gestion_des_Sinistres#VillaWiem2">
+        <rdfs:label>Villa La Marsa</rdfs:label>
+        <rdf:type rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#Villa"/>
+        <Assuarnce_et_Gestion_des_Sinistres:adresseBien>4 route de Gammarth, La Marsa</Assuarnce_et_Gestion_des_Sinistres:adresseBien>
+        <Assuarnce_et_Gestion_des_Sinistres:superficie rdf:datatype="http://www.w3.org/2001/XMLSchema#float">310.0</Assuarnce_et_Gestion_des_Sinistres:superficie>
+
+        <Assuarnce_et_Gestion_des_Sinistres:valeurBien rdf:datatype="http://www.w3.org/2001/XMLSchema#float">780000.0</Assuarnce_et_Gestion_des_Sinistres:valeurBien>
+        <Assuarnce_et_Gestion_des_Sinistres:estPossedeePar rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/Assuarnce_et_Gestion_des_Sinistres#Assure1"/>
+    </owl:NamedIndividual>
+
+    <owl:NamedIndividual rdf:about="http://www.semanticweb.org/asus/ontologies/2026/8/Assuarnce_et_Gestion_des_Sinistres#IndemnisationTotaleWiem1">
+        <rdfs:label>Indemnisation totale Tunis</rdfs:label>
+        <rdf:type rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#IndemnisationTotale"/>
+        <Assuarnce_et_Gestion_des_Sinistres:montantIndemnise rdf:datatype="http://www.w3.org/2001/XMLSchema#float">145000.0</Assuarnce_et_Gestion_des_Sinistres:montantIndemnise>
+        <Assuarnce_et_Gestion_des_Sinistres:tauxIndemnisation rdf:datatype="http://www.w3.org/2001/XMLSchema#float">100.0</Assuarnce_et_Gestion_des_Sinistres:tauxIndemnisation>
+        <Assuarnce_et_Gestion_des_Sinistres:concerneHabitation rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/Assuarnce_et_Gestion_des_Sinistres#MaisonWiem1"/>
+    </owl:NamedIndividual>
+
+    <owl:NamedIndividual rdf:about="http://www.semanticweb.org/asus/ontologies/2026/8/Assuarnce_et_Gestion_des_Sinistres#IndemnisationPartielleWiem1">
+        <rdfs:label>Indemnisation partielle Ariana</rdfs:label>
+        <rdf:type rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#IndemnisationPartielle"/>
+        <Assuarnce_et_Gestion_des_Sinistres:montantIndemnise rdf:datatype="http://www.w3.org/2001/XMLSchema#float">42000.0</Assuarnce_et_Gestion_des_Sinistres:montantIndemnise>
+        <Assuarnce_et_Gestion_des_Sinistres:tauxIndemnisation rdf:datatype="http://www.w3.org/2001/XMLSchema#float">60.0</Assuarnce_et_Gestion_des_Sinistres:tauxIndemnisation>
+        <Assuarnce_et_Gestion_des_Sinistres:concerneHabitation rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/Assuarnce_et_Gestion_des_Sinistres#AppartementWiem1"/>
+    </owl:NamedIndividual>
+
+    <owl:NamedIndividual rdf:about="http://www.semanticweb.org/asus/ontologies/2026/8/Assuarnce_et_Gestion_des_Sinistres#IndemnisationRefuseeWiem1">
+        <rdfs:label>Indemnisation refusée Tunis</rdfs:label>
+        <rdf:type rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#IndemnisationRefusee"/>
+        <Assuarnce_et_Gestion_des_Sinistres:montantIndemnise rdf:datatype="http://www.w3.org/2001/XMLSchema#float">0.0</Assuarnce_et_Gestion_des_Sinistres:montantIndemnise>
+        <Assuarnce_et_Gestion_des_Sinistres:tauxIndemnisation rdf:datatype="http://www.w3.org/2001/XMLSchema#float">0.0</Assuarnce_et_Gestion_des_Sinistres:tauxIndemnisation>
+        <Assuarnce_et_Gestion_des_Sinistres:concerneHabitation rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/Assuarnce_et_Gestion_des_Sinistres#StudioWiem1"/>
+    </owl:NamedIndividual>
+
+    <owl:NamedIndividual rdf:about="http://www.semanticweb.org/asus/ontologies/2026/8/Assuarnce_et_Gestion_des_Sinistres#IndemnisationPartielleWiem2">
+        <rdfs:label>Indemnisation partielle Carthage</rdfs:label>
+        <rdf:type rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/untitled-ontology-5#IndemnisationPartielle"/>
+        <Assuarnce_et_Gestion_des_Sinistres:montantIndemnise rdf:datatype="http://www.w3.org/2001/XMLSchema#float">88000.0</Assuarnce_et_Gestion_des_Sinistres:montantIndemnise>
+        <Assuarnce_et_Gestion_des_Sinistres:tauxIndemnisation rdf:datatype="http://www.w3.org/2001/XMLSchema#float">35.0</Assuarnce_et_Gestion_des_Sinistres:tauxIndemnisation>
+        <Assuarnce_et_Gestion_des_Sinistres:concerneHabitation rdf:resource="http://www.semanticweb.org/asus/ontologies/2026/8/Assuarnce_et_Gestion_des_Sinistres#VillaWiem1"/>
+    </owl:NamedIndividual>
+
 </rdf:RDF>
 
 
 
 <!-- Generated by the OWL API (version 4.5.29.2024-05-13T12:11:03Z) https://github.com/owlcs/owlapi -->
-

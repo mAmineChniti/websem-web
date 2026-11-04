@@ -77,8 +77,35 @@ const QUESTIONS_BY_ROLE: Record<string, string[]> = {
   ],
 };
 
+// Vocabulaire WIEM - Habitations et Indemnisations (section séparée)
+const WIEM_HABITATIONS_INDEMNISATIONS_QUESTIONS = [
+  'Combien de maisons, appartements, studios et villas sont enregistrés ?',
+  'Quelle est la superficie moyenne des habitations ?',
+  'Quelle est la somme de montantIndemnise ?',
+  'Quel est le maximum et minimum de montantIndemnise ?',
+  'Liste les indemnisations totales, partielles et refusées par habitation.',
+  'tauxIndemnisation moyen des indemnisations par type ?',
+];
+
+// Questions WIEM dédiées à l'Assuré (sur ses propres habitations et indemnisations)
+const WIEM_ASSURE_QUESTIONS = [
+  'Quelles sont mes habitations enregistrées ?',
+  'Quelle est la superficie de mon habitation ?',
+  'Quelle est la valeur déclarée de mon bien ?',
+  'Ai-je des indemnisations en cours ?',
+  'Quel est le montant de mes indemnisations ?',
+  'Mon indemnisation a-t-elle été acceptée ou refusée ?',
+];
+
 function getPresetQuestions(role: string): string[] {
-  return QUESTIONS_BY_ROLE[role] || QUESTIONS_BY_ROLE['Admin'];
+  const roleQuestions = QUESTIONS_BY_ROLE[role] || QUESTIONS_BY_ROLE['Admin'];
+  if (role === 'Admin') {
+    return [...roleQuestions, ...WIEM_HABITATIONS_INDEMNISATIONS_QUESTIONS];
+  }
+  if (role === 'Assure') {
+    return [...roleQuestions, ...WIEM_ASSURE_QUESTIONS];
+  }
+  return roleQuestions;
 }
 
 function isPersonRow(row: NullableStringRecord): boolean {
@@ -108,7 +135,10 @@ function isPersonRow(row: NullableStringRecord): boolean {
     row.dateDeclaration ||
     row.statutDeclaration;
   const isIndemnisation =
-    row.indemnisation || row.typeIndemnisation || row.montantIndemnisation;
+    row.indemnisation ||
+    row.typeIndemnisation ||
+    row.montantIndemnise ||
+    row.tauxIndemnisation;
   if (
     isSinistre ||
     isGarantie ||
@@ -792,6 +822,10 @@ export function SemanticWebView({ userRole = 'Admin' }: { userRole?: string }) {
         r.dateDebut ||
         r.plafond ||
         r.montant ||
+        r.montantIndemnise ||
+        r.tauxIndemnisation ||
+        r.adresseBien ||
+        r.valeurBien ||
         r.description ||
         r.descriptionSinistre ||
         r.lieuSinistre ||

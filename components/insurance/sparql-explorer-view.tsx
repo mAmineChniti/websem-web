@@ -16,6 +16,7 @@ import { listSparqlExamples, runSparql } from '@/lib/services/sparql';
 import { cn } from '@/lib/utils';
 import {
   isSparqlSelectResult,
+  isSparqlAskResult,
   type SparqlSelectResult,
 } from '@/lib/types/sparql';
 import type { SparqlExample } from '@/lib/types/sparql';
@@ -94,8 +95,12 @@ export function SparqlExplorerView({
     void runMutation
       .mutateAsync(q)
       .then((data) => {
-        if (!isSparqlSelectResult(data)) {
+        if (isSparqlAskResult(data)) {
           setError(`Résultat booléen : ${data.boolean ? 'vrai' : 'faux'}`);
+          return;
+        }
+        if (!isSparqlSelectResult(data)) {
+          setError(`Requête exécutée : ${data.type.toLowerCase()}`);
           return;
         }
         setResult({
