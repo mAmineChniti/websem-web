@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Header } from '@/components/header';
 import { Sidebar } from '@/components/sidebar';
@@ -48,18 +48,14 @@ export default function Home() {
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
 
   // Security & Authentication State
-  const [user, setUser] = useState<UserSession>();
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
-
-  useEffect(() => {
+  const [user, setUser] = useState<UserSession | undefined>(() => {
+    if (globalThis.window === undefined) return;
     const saved = globalThis.localStorage.getItem('hestia_session');
     if (!saved) return;
-    const timeoutId = globalThis.window.setTimeout(() => {
-      setUser(parseStoredSession(saved));
-    }, 0);
-    return () => globalThis.window.clearTimeout(timeoutId);
-  }, []);
+    return parseStoredSession(saved);
+  });
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
 
   const personnesQuery = useQuery({
     queryKey: ['personnes'],

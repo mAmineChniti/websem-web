@@ -23,9 +23,22 @@ const ONT = [
 ].join('');
 const RDFS = ['http:', '//www.w3.org/2000/01/rdf-schema#'].join('');
 const XSD = ['http:', '//www.w3.org/2001/XMLSchema#'].join('');
+const OWL = ['http:', '//www.w3.org/2002/07/owl#'].join('');
 
 function escapeSparql(value: string): string {
   return value.replaceAll('\\', '\\\\').replaceAll('"', String.raw`\"`);
+}
+
+const INDEMNISATION_TYPES = new Set([
+  'IndemnisationTotale',
+  'IndemnisationPartielle',
+  'IndemnisationRefusee',
+]);
+
+function assertSafeIdentifier(value: string, field: string): void {
+  if (!/^[A-Za-z0-9_.-]+$/.test(value)) {
+    throw new Error(`Invalid ${field}`);
+  }
 }
 
 async function safeRunQuery(query: string) {
@@ -120,6 +133,10 @@ export async function listIndemnisations(
 export async function createIndemnisation(
   payload: CreateIndemnisationPayload
 ): Promise<void> {
+  if (!INDEMNISATION_TYPES.has(payload.type)) {
+    throw new Error('Invalid indemnisation type');
+  }
+  assertSafeIdentifier(payload.habitation, 'habitation id');
   let habitationLocation = payload.habitationLabel
     ? getShortLocation(payload.habitationLabel)
     : '';
@@ -155,11 +172,12 @@ export async function createIndemnisation(
     PREFIX as: <${AS}>
     PREFIX ont: <${ONT}>
     PREFIX rdfs: <${RDFS}>
+    PREFIX owl: <${OWL}>
     INSERT DATA {
-      as:${id} a ont:${payload.type};
+      as:${id} a ont:${payload.type}, owl:NamedIndividual;
         rdfs:label "${escapeSparql(label)}";
-        as:montantIndemnise "${payload.montantIndemnise}"^^<https://www.w3.org/2001/XMLSchema#float>;
-        as:tauxIndemnisation "${payload.tauxIndemnisation}"^^<https://www.w3.org/2001/XMLSchema#float>;
+        as:montantIndemnise "${payload.montantIndemnise}"^^<${XSD}float>;
+        as:tauxIndemnisation "${payload.tauxIndemnisation}"^^<${XSD}float>;
         ${motifTriple}
         as:concerneHabitation <${AS}${escapeSparql(payload.habitation)}>.
     }`);
@@ -169,6 +187,12 @@ export async function updateIndemnisation(
   id: string,
   payload: UpdateIndemnisationPayload
 ): Promise<void> {
+  assertSafeIdentifier(id, 'indemnisation id');
+  if (payload.type && !INDEMNISATION_TYPES.has(payload.type)) {
+    throw new Error('Invalid indemnisation type');
+  }
+  if (payload.habitation)
+    assertSafeIdentifier(payload.habitation, 'habitation id');
   const subject = `<${AS}${escapeSparql(id)}>`;
 
   const deletes: string[] = [];
@@ -176,7 +200,10 @@ export async function updateIndemnisation(
 
   if (payload.type) {
     deletes.push(`${subject} a ?oldType.`);
-    whereClauses.push(`OPTIONAL { ${subject} a ?oldType. }`);
+    whereClauses.push(
+      `${subject} a ?oldType.`,
+      `FILTER(?oldType != <${OWL}NamedIndividual>)`
+    );
   }
   if (payload.montantIndemnise !== undefined) {
     deletes.push(`${subject} as:montantIndemnise ?oldMontant.`);
@@ -203,7 +230,10 @@ export async function updateIndemnisation(
   const newLabel =
     payload.label ||
     (payload.type
-      ? buildIndemnisationLabel(payload.type, payload.habitationLabel)
+      ? buildIndemnisationLabel(
+          payload.type as Indemnisation['type'],
+          payload.habitationLabel
+        )
       : undefined);
 
   if (newLabel) {
@@ -213,19 +243,19 @@ export async function updateIndemnisation(
 
   const inserts: string[] = [];
   if (payload.type) {
-    inserts.push(`${subject} a ont:${payload.type}.`);
+    inserts.push(`${subject} a ont:${payload.type}, <${OWL}NamedIndividual>.`);
   }
   if (newLabel) {
     inserts.push(`${subject} rdfs:label "${escapeSparql(newLabel)}".`);
   }
   if (payload.montantIndemnise !== undefined) {
     inserts.push(
-      `${subject} as:montantIndemnise "${payload.montantIndemnise}"^^<https://www.w3.org/2001/XMLSchema#float>.`
+      `${subject} as:montantIndemnise "${payload.montantIndemnise}"^^<${XSD}float>.`
     );
   }
   if (payload.tauxIndemnisation !== undefined) {
     inserts.push(
-      `${subject} as:tauxIndemnisation "${payload.tauxIndemnisation}"^^<https://www.w3.org/2001/XMLSchema#float>.`
+      `${subject} as:tauxIndemnisation "${payload.tauxIndemnisation}"^^<${XSD}float>.`
     );
   }
   if (payload.habitation) {
@@ -255,14 +285,20 @@ export async function updateIndemnisation(
 }
 
 export async function deleteIndemnisation(id: string): Promise<void> {
+  assertSafeIdentifier(id, 'indemnisation id');
+  const subject = `<${AS}${escapeSparql(id)}>`;
   await runSparql(`
     PREFIX as: <${AS}>
-    DELETE WHERE { <${AS}${escapeSparql(id)}> ?property ?value. }`);
+    DELETE WHERE { ${subject} ?property ?value. }`);
+  await runSparql(`
+    PREFIX as: <${AS}>
+    DELETE WHERE { ?subject ?property ${subject}. }`);
 }
 
 export async function getIndemnisationStats(
   assureId?: string
 ): Promise<IndemnisationStats> {
+  if (assureId) assertSafeIdentifier(assureId, 'assure id');
   const ownerFilter = assureId
     ? `?indemnisation as:concerneHabitation ?habitationOwner. ?habitationOwner as:estPossedeePar <${AS}${escapeSparql(assureId)}>.`
     : '';
@@ -313,6 +349,7 @@ export async function getIndemnisationStats(
 export async function queryIndemnisations(
   params: IndemnisationsFilterParams = {}
 ): Promise<PaginatedIndemnisations> {
+  if (params.assureId) assertSafeIdentifier(params.assureId, 'assure id');
   const {
     assureId,
     search,

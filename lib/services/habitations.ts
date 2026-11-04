@@ -2,6 +2,7 @@ import { habitationsListSchema } from '@/lib/schemas/habitations';
 import { runSparql } from '@/lib/services/sparql';
 import {
   buildHabitationLabel,
+  getShortLocation,
   slugify,
   type CreateHabitationPayload,
   type Habitation,
@@ -22,9 +23,18 @@ const ONT = [
 ].join('');
 const RDFS = ['http:', '//www.w3.org/2000/01/rdf-schema#'].join('');
 const XSD = ['http:', '//www.w3.org/2001/XMLSchema#'].join('');
+const OWL = ['http:', '//www.w3.org/2002/07/owl#'].join('');
 
 function escapeSparql(value: string): string {
   return value.replaceAll('\\', '\\\\').replaceAll('"', String.raw`\"`);
+}
+
+const HABITATION_TYPES = new Set(['Maison', 'Appartement', 'Studio', 'Villa']);
+
+function assertSafeIdentifier(value: string, field: string): void {
+  if (!/^[A-Za-z0-9_.-]+$/.test(value)) {
+    throw new Error(`Invalid ${field}`);
+  }
 }
 
 async function safeRunQuery(query: string) {
@@ -112,6 +122,10 @@ export async function listHabitations(
 export async function createHabitation(
   payload: CreateHabitationPayload
 ): Promise<void> {
+  if (!HABITATION_TYPES.has(payload.type)) {
+    throw new Error('Invalid habitation type');
+  }
+  assertSafeIdentifier(payload.assure, 'assure');
   const label =
     payload.label || buildHabitationLabel(payload.type, payload.adresseBien);
   const baseSlug = slugify(label) || payload.type;
@@ -121,17 +135,18 @@ export async function createHabitation(
   const valeurBienTriple =
     payload.valeurBien === undefined
       ? ''
-      : `as:valeurBien "${payload.valeurBien}"^^<https://www.w3.org/2001/XMLSchema#float>;`;
+      : `as:valeurBien "${payload.valeurBien}"^^<${XSD}float>;`;
 
   const query = `
     PREFIX as: <${AS}>
     PREFIX ont: <${ONT}>
     PREFIX rdfs: <${RDFS}>
+    PREFIX owl: <${OWL}>
     INSERT DATA {
-      as:${id} a ont:${payload.type};
+      as:${id} a ont:${payload.type}, owl:NamedIndividual;
         rdfs:label "${escapeSparql(label)}";
         as:adresseBien "${escapedAdresseBien}";
-        as:superficie "${payload.superficie}"^^<https://www.w3.org/2001/XMLSchema#float>;
+        as:superficie "${payload.superficie}"^^<${XSD}float>;
         ${valeurBienTriple}
         as:estPossedeePar <${AS}${escapeSparql(payload.assure)}>.
     }`;
@@ -142,6 +157,11 @@ export async function updateHabitation(
   id: string,
   payload: UpdateHabitationPayload
 ): Promise<void> {
+  assertSafeIdentifier(id, 'habitation id');
+  if (payload.type && !HABITATION_TYPES.has(payload.type)) {
+    throw new Error('Invalid habitation type');
+  }
+  if (payload.assure) assertSafeIdentifier(payload.assure, 'assure');
   const subject = `<${AS}${escapeSparql(id)}>`;
 
   const deletes: string[] = [];
@@ -149,7 +169,10 @@ export async function updateHabitation(
 
   if (payload.type) {
     deletes.push(`${subject} a ?oldType.`);
-    whereClauses.push(`OPTIONAL { ${subject} a ?oldType. }`);
+    whereClauses.push(
+      `${subject} a ?oldType.`,
+      `FILTER(?oldType != <${OWL}NamedIndividual>)`
+    );
   }
   if (payload.adresseBien) {
     deletes.push(`${subject} as:adresseBien ?oldAdresseBien.`);
@@ -183,7 +206,8 @@ export async function updateHabitation(
   }
 
   const inserts: string[] = [];
-  if (payload.type) inserts.push(`${subject} a ont:${payload.type}.`);
+  if (payload.type)
+    inserts.push(`${subject} a ont:${payload.type}, <${OWL}NamedIndividual>.`);
   if (newLabel) {
     inserts.push(`${subject} rdfs:label "${escapeSparql(newLabel)}".`);
   }
@@ -194,12 +218,12 @@ export async function updateHabitation(
   }
   if (payload.superficie !== undefined) {
     inserts.push(
-      `${subject} as:superficie "${payload.superficie}"^^<https://www.w3.org/2001/XMLSchema#float>.`
+      `${subject} as:superficie "${payload.superficie}"^^<${XSD}float>.`
     );
   }
   if (payload.valeurBien !== undefined) {
     inserts.push(
-      `${subject} as:valeurBien "${payload.valeurBien}"^^<https://www.w3.org/2001/XMLSchema#float>.`
+      `${subject} as:valeurBien "${payload.valeurBien}"^^<${XSD}float>.`
     );
   }
   if (payload.assure) {
@@ -225,14 +249,20 @@ export async function updateHabitation(
 }
 
 export async function deleteHabitation(id: string): Promise<void> {
+  assertSafeIdentifier(id, 'habitation id');
+  const subject = `<${AS}${escapeSparql(id)}>`;
   await runSparql(`
     PREFIX as: <${AS}>
-    DELETE WHERE { <${AS}${escapeSparql(id)}> ?property ?value. }`);
+    DELETE WHERE { ${subject} ?property ?value. }`);
+  await runSparql(`
+    PREFIX as: <${AS}>
+    DELETE WHERE { ?subject ?property ${subject}. }`);
 }
 
 export async function getHabitationStats(
   assureId?: string
 ): Promise<HabitationStats> {
+  if (assureId) assertSafeIdentifier(assureId, 'assure id');
   const ownerFilter = assureId
     ? `?habitation as:estPossedeePar <${AS}${escapeSparql(assureId)}>.`
     : '';
@@ -283,6 +313,7 @@ export async function getHabitationStats(
 export async function queryHabitations(
   params: HabitationsFilterParams = {}
 ): Promise<PaginatedHabitations> {
+  if (params.assureId) assertSafeIdentifier(params.assureId, 'assure id');
   const {
     assureId,
     search,

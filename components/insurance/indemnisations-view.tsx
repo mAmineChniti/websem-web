@@ -37,6 +37,8 @@ import {
   NativeSelectOption,
 } from '@/components/ui/native-select';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
+import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -187,8 +189,18 @@ export function IndemnisationsView({
   const notifiedIds = useRef(new Set<string>());
 
   const habitationsQuery = useQuery({
-    queryKey: ['habitations-for-indemnisation'],
+    queryKey: [
+      'habitations-for-indemnisation',
+      currentUser?.ontology_id,
+      isAssure,
+    ],
     queryFn: () => listHabitations(),
+    select: (data) =>
+      isAssure && currentUser?.ontology_id
+        ? data.filter(
+            (habitation) => habitation.assure === currentUser.ontology_id
+          )
+        : data,
   });
 
   const habitationsMap = useMemo(() => {
@@ -460,30 +472,6 @@ export function IndemnisationsView({
     setError(undefined);
     const montantIndemnise = Number.parseFloat(values.montantIndemnise);
     const tauxIndemnisation = Number.parseFloat(values.tauxIndemnisation);
-    if (values.type === 'IndemnisationTotale' && tauxIndemnisation !== 100) {
-      setError('Une indemnisation totale doit avoir un taux de 100 %.');
-      return;
-    }
-    if (
-      values.type === 'IndemnisationPartielle' &&
-      (tauxIndemnisation <= 0 || tauxIndemnisation >= 100)
-    ) {
-      setError(
-        'Une indemnisation partielle doit avoir un taux strictement entre 0 et 100 %.'
-      );
-      return;
-    }
-    if (values.type === 'IndemnisationRefusee' && montantIndemnise !== 0) {
-      setError('Une indemnisation refusée doit avoir un montant de 0.');
-      return;
-    }
-    if (
-      values.type === 'IndemnisationRefusee' &&
-      (!values.motifRefus || values.motifRefus.trim().length === 0)
-    ) {
-      setError('Veuillez préciser le motif du refus pour l’assuré.');
-      return;
-    }
 
     const habitationObj = habitationsMap[values.habitation];
     const habLabel =
@@ -536,7 +524,18 @@ export function IndemnisationsView({
           </p>
         </div>
         {isAdmin && (
-          <Button onClick={() => setAddOpen(true)}>
+          <Button
+            onClick={() => {
+              form.reset({
+                type: 'IndemnisationTotale',
+                montantIndemnise: '',
+                tauxIndemnisation: '',
+                habitation: '',
+                motifRefus: '',
+              });
+              setAddOpen(true);
+            }}
+          >
             <Plus className="mr-2 h-4 w-4" />
             Ajouter une indemnisation
           </Button>
@@ -544,87 +543,89 @@ export function IndemnisationsView({
       </div>
 
       {/* 4 Cartes statistiques SPARQL — Admin uniquement */}
-      {isAdmin && <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="border-border bg-card flex items-center gap-4 rounded-2xl border p-4 shadow-sm">
-          <div className="bg-primary/10 text-primary flex h-11 w-11 shrink-0 items-center justify-center rounded-xl">
-            <FileText className="h-5 w-5" />
+      {isAdmin && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="border-border bg-card flex items-center gap-4 rounded-2xl border p-4 shadow-sm">
+            <div className="bg-primary/10 text-primary flex h-11 w-11 shrink-0 items-center justify-center rounded-xl">
+              <FileText className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
+                Indemnisations
+              </p>
+              <p className="text-foreground mt-1 text-2xl font-bold">
+                {statsQuery.isPending
+                  ? '...'
+                  : (statsQuery.data?.totalCount ?? 0)}
+              </p>
+              <p className="text-muted-foreground mt-0.5 text-[11px]">
+                COUNT indemnisations
+              </p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
-              Indemnisations
-            </p>
-            <p className="text-foreground mt-1 text-2xl font-bold">
-              {statsQuery.isPending
-                ? '...'
-                : (statsQuery.data?.totalCount ?? 0)}
-            </p>
-            <p className="text-muted-foreground mt-0.5 text-[11px]">
-              COUNT indemnisations
-            </p>
-          </div>
-        </div>
 
-        <div className="border-border bg-card flex items-center gap-4 rounded-2xl border p-4 shadow-sm">
-          <div className="bg-primary/10 text-primary flex h-11 w-11 shrink-0 items-center justify-center rounded-xl">
-            <Coins className="h-5 w-5" />
+          <div className="border-border bg-card flex items-center gap-4 rounded-2xl border p-4 shadow-sm">
+            <div className="bg-primary/10 text-primary flex h-11 w-11 shrink-0 items-center justify-center rounded-xl">
+              <Coins className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
+                Montant total
+              </p>
+              <p className="text-foreground mt-1 text-2xl font-bold">
+                {statsQuery.isPending
+                  ? '...'
+                  : statsQuery.data?.sumMontantIndemnise
+                    ? `${statsQuery.data.sumMontantIndemnise.toLocaleString('fr-TN')} DT`
+                    : '0 DT'}
+              </p>
+              <p className="text-muted-foreground mt-0.5 text-[11px]">
+                SUM montantIndemnise
+              </p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
-              Montant total
-            </p>
-            <p className="text-foreground mt-1 text-2xl font-bold">
-              {statsQuery.isPending
-                ? '...'
-                : statsQuery.data?.sumMontantIndemnise
-                  ? `${statsQuery.data.sumMontantIndemnise.toLocaleString('fr-TN')} DT`
-                  : '0 DT'}
-            </p>
-            <p className="text-muted-foreground mt-0.5 text-[11px]">
-              SUM montantIndemnise
-            </p>
-          </div>
-        </div>
 
-        <div className="border-border bg-card flex items-center gap-4 rounded-2xl border p-4 shadow-sm">
-          <div className="bg-primary/10 text-primary flex h-11 w-11 shrink-0 items-center justify-center rounded-xl">
-            <TrendingUp className="h-5 w-5" />
+          <div className="border-border bg-card flex items-center gap-4 rounded-2xl border p-4 shadow-sm">
+            <div className="bg-primary/10 text-primary flex h-11 w-11 shrink-0 items-center justify-center rounded-xl">
+              <TrendingUp className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
+                Montant max
+              </p>
+              <p className="text-foreground mt-1 text-2xl font-bold">
+                {statsQuery.isPending
+                  ? '...'
+                  : statsQuery.data?.maxMontantIndemnise
+                    ? `${statsQuery.data.maxMontantIndemnise.toLocaleString('fr-TN')} DT`
+                    : '0 DT'}
+              </p>
+              <p className="text-muted-foreground mt-0.5 text-[11px]">
+                MAX montantIndemnise
+              </p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
-              Montant max
-            </p>
-            <p className="text-foreground mt-1 text-2xl font-bold">
-              {statsQuery.isPending
-                ? '...'
-                : statsQuery.data?.maxMontantIndemnise
-                  ? `${statsQuery.data.maxMontantIndemnise.toLocaleString('fr-TN')} DT`
-                  : '0 DT'}
-            </p>
-            <p className="text-muted-foreground mt-0.5 text-[11px]">
-              MAX montantIndemnise
-            </p>
-          </div>
-        </div>
 
-        <div className="border-border bg-card flex items-center gap-4 rounded-2xl border p-4 shadow-sm">
-          <div className="bg-primary/10 text-primary flex h-11 w-11 shrink-0 items-center justify-center rounded-xl">
-            <PieChart className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
-              Indem. partielles
-            </p>
-            <p className="text-foreground mt-1 text-2xl font-bold">
-              {statsQuery.isPending
-                ? '...'
-                : (statsQuery.data?.countPartielle ?? 0)}
-            </p>
-            <p className="text-muted-foreground mt-0.5 text-[11px]">
-              COUNT partielles
-            </p>
+          <div className="border-border bg-card flex items-center gap-4 rounded-2xl border p-4 shadow-sm">
+            <div className="bg-primary/10 text-primary flex h-11 w-11 shrink-0 items-center justify-center rounded-xl">
+              <PieChart className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
+                Indem. partielles
+              </p>
+              <p className="text-foreground mt-1 text-2xl font-bold">
+                {statsQuery.isPending
+                  ? '...'
+                  : (statsQuery.data?.countPartielle ?? 0)}
+              </p>
+              <p className="text-muted-foreground mt-0.5 text-[11px]">
+                COUNT partielles
+              </p>
+            </div>
           </div>
         </div>
-      </div>}
+      )}
 
       {/* Notifications pour l'Assuré */}
       {isAssure &&
@@ -726,9 +727,9 @@ export function IndemnisationsView({
         {showAdvanced && (
           <div className="border-border bg-muted/30 grid grid-cols-1 gap-3 rounded-xl border p-3 sm:grid-cols-2 lg:grid-cols-4">
             <div>
-              <label className="text-muted-foreground mb-1 block text-xs font-medium">
+              <Label className="text-muted-foreground mb-1 block text-xs font-medium">
                 Taux min (%)
-              </label>
+              </Label>
               <Input
                 type="number"
                 min="0"
@@ -739,9 +740,9 @@ export function IndemnisationsView({
               />
             </div>
             <div>
-              <label className="text-muted-foreground mb-1 block text-xs font-medium">
+              <Label className="text-muted-foreground mb-1 block text-xs font-medium">
                 Taux max (%)
-              </label>
+              </Label>
               <Input
                 type="number"
                 min="0"
@@ -752,9 +753,9 @@ export function IndemnisationsView({
               />
             </div>
             <div>
-              <label className="text-muted-foreground mb-1 block text-xs font-medium">
+              <Label className="text-muted-foreground mb-1 block text-xs font-medium">
                 Montant min (DT)
-              </label>
+              </Label>
               <Input
                 type="number"
                 min="0"
@@ -764,9 +765,9 @@ export function IndemnisationsView({
               />
             </div>
             <div>
-              <label className="text-muted-foreground mb-1 block text-xs font-medium">
+              <Label className="text-muted-foreground mb-1 block text-xs font-medium">
                 Montant max (DT)
-              </label>
+              </Label>
               <Input
                 type="number"
                 min="0"
@@ -823,22 +824,27 @@ export function IndemnisationsView({
                 className="bg-primary/10 text-primary inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium"
               >
                 {chip.label}
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon"
                   onClick={() => removeChip(chip.key)}
                   aria-label={`Supprimer le filtre ${chip.label}`}
+                  className="h-4 w-4 p-0"
                 >
                   <X className="h-3 w-3" />
-                </button>
+                </Button>
               </span>
             ))}
-            <button
+            <Button
               type="button"
+              variant="link"
+              size="sm"
               onClick={clearAllFilters}
               className="text-muted-foreground hover:text-foreground text-xs underline"
             >
               Tout effacer
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -877,11 +883,12 @@ export function IndemnisationsView({
                   <BadgeDollarSign className="h-5 w-5" />
                 </div>
                 <span
-                  className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                  className={cn(
+                    'rounded-full px-2.5 py-1 text-xs font-semibold',
                     item.type === 'IndemnisationRefusee'
                       ? 'bg-destructive/10 text-destructive'
                       : 'bg-muted text-primary'
-                  }`}
+                  )}
                 >
                   {labelByType[item.type]}
                 </span>
@@ -988,8 +995,9 @@ export function IndemnisationsView({
       {/* Bloc repliable Requête SPARQL exécutée (réservé à l'Admin) */}
       {isAdmin && (
         <div className="border-border bg-card rounded-2xl border p-4 shadow-sm">
-          <button
+          <Button
             type="button"
+            variant="ghost"
             onClick={() => setSparqlOpen((prev) => !prev)}
             className="flex w-full items-center justify-between text-left"
           >
@@ -1007,7 +1015,7 @@ export function IndemnisationsView({
             ) : (
               <ChevronDown className="text-muted-foreground h-4 w-4" />
             )}
-          </button>
+          </Button>
 
           {sparqlOpen && (
             <div className="mt-3 space-y-3">
@@ -1235,7 +1243,7 @@ export function IndemnisationsView({
             <Controller
               control={form.control}
               name="type"
-              render={({ field }) => (
+              render={({ field, fieldState }) => (
                 <Field>
                   <FieldLabel>Type</FieldLabel>
                   <NativeSelect {...field}>
@@ -1249,13 +1257,16 @@ export function IndemnisationsView({
                       Refusée
                     </NativeSelectOption>
                   </NativeSelect>
+                  <FieldError
+                    errors={fieldState.error ? [fieldState.error] : []}
+                  />
                 </Field>
               )}
             />
             <Controller
               control={form.control}
               name="habitation"
-              render={({ field }) => (
+              render={({ field, fieldState }) => (
                 <Field>
                   <FieldLabel>Habitation</FieldLabel>
                   <NativeSelect {...field}>
@@ -1265,13 +1276,16 @@ export function IndemnisationsView({
                       </NativeSelectOption>
                     ))}
                   </NativeSelect>
+                  <FieldError
+                    errors={fieldState.error ? [fieldState.error] : []}
+                  />
                 </Field>
               )}
             />
             <Controller
               control={form.control}
               name="montantIndemnise"
-              render={({ field }) => (
+              render={({ field, fieldState }) => (
                 <Field>
                   <FieldLabel>Montant (DT)</FieldLabel>
                   <Input
@@ -1281,13 +1295,16 @@ export function IndemnisationsView({
                     step="0.01"
                     disabled={watchedType === 'IndemnisationRefusee'}
                   />
+                  <FieldError
+                    errors={fieldState.error ? [fieldState.error] : []}
+                  />
                 </Field>
               )}
             />
             <Controller
               control={form.control}
               name="tauxIndemnisation"
-              render={({ field }) => (
+              render={({ field, fieldState }) => (
                 <Field>
                   <FieldLabel>Taux (%)</FieldLabel>
                   <Input
@@ -1297,6 +1314,9 @@ export function IndemnisationsView({
                     max={100}
                     step="1"
                     disabled={watchedType === 'IndemnisationRefusee'}
+                  />
+                  <FieldError
+                    errors={fieldState.error ? [fieldState.error] : []}
                   />
                 </Field>
               )}

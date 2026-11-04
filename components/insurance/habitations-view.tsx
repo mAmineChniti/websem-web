@@ -32,6 +32,7 @@ import {
   NativeSelectOption,
 } from '@/components/ui/native-select';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -113,7 +114,9 @@ export function HabitationsView({
   // Params SPARQL
   const filterParams: HabitationsFilterParams = useMemo(
     () => ({
-      assureId: isAssure ? currentUser?.ontology_id : undefined,
+      assureId: isAssure
+        ? (currentUser?.ontology_id ?? '__no_access__')
+        : undefined,
       search: search || undefined,
       type: typeFilter === 'Tous' ? undefined : typeFilter,
       superficieMin: superficieMin ? Number(superficieMin) : undefined,
@@ -148,7 +151,9 @@ export function HabitationsView({
   const statsQuery = useQuery({
     queryKey: ['habitations-stats', currentUser?.ontology_id, isAssure],
     queryFn: () =>
-      getHabitationStats(isAssure ? currentUser?.ontology_id : undefined),
+      getHabitationStats(
+        isAssure ? (currentUser?.ontology_id ?? '__no_access__') : undefined
+      ),
   });
 
   const form = useForm<HabitationFormValues>({
@@ -270,6 +275,10 @@ export function HabitationsView({
 
   const create = async (values: HabitationFormValues) => {
     setError(undefined);
+    if (isAssure && !currentUser?.ontology_id) {
+      setError('Session utilisateur incomplète.');
+      return;
+    }
     await mutation.mutateAsync({
       type: values.type,
       adresseBien: values.adresseBien,
@@ -277,7 +286,7 @@ export function HabitationsView({
       valeurBien: values.valeurBien
         ? Number.parseFloat(values.valeurBien)
         : undefined,
-      assure: currentUser?.ontology_id ?? 'Assure1',
+      assure: currentUser?.ontology_id ?? '',
     });
   };
 
@@ -295,7 +304,17 @@ export function HabitationsView({
           </p>
         </div>
         {isAssure && (
-          <Button onClick={() => setAddOpen(true)}>
+          <Button
+            onClick={() => {
+              form.reset({
+                type: 'Maison',
+                adresseBien: '',
+                superficie: '',
+                valeurBien: '',
+              });
+              setAddOpen(true);
+            }}
+          >
             <Plus className="mr-2 h-4 w-4" />
             Ajouter une habitation
           </Button>
@@ -303,89 +322,91 @@ export function HabitationsView({
       </div>
 
       {/* Cartes statistiques SPARQL — Admin uniquement */}
-      {isAdmin && <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="border-border bg-card flex items-center gap-4 rounded-2xl border p-4 shadow-sm">
-          <div className="bg-primary/10 text-primary flex h-11 w-11 shrink-0 items-center justify-center rounded-xl">
-            <Building2 className="h-5 w-5" />
+      {isAdmin && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="border-border bg-card flex items-center gap-4 rounded-2xl border p-4 shadow-sm">
+            <div className="bg-primary/10 text-primary flex h-11 w-11 shrink-0 items-center justify-center rounded-xl">
+              <Building2 className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
+                Habitations
+              </p>
+              <p className="text-foreground mt-1 text-2xl font-bold">
+                {statsQuery.isPending
+                  ? '...'
+                  : (statsQuery.data?.totalCount ?? 0)}
+              </p>
+              <p className="text-muted-foreground mt-0.5 text-[11px]">
+                COUNT habitations
+              </p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
-              Habitations
-            </p>
-            <p className="text-foreground mt-1 text-2xl font-bold">
-              {statsQuery.isPending
-                ? '...'
-                : (statsQuery.data?.totalCount ?? 0)}
-            </p>
-            <p className="text-muted-foreground mt-0.5 text-[11px]">
-              COUNT habitations
-            </p>
-          </div>
-        </div>
 
-        <div className="border-border bg-card flex items-center gap-4 rounded-2xl border p-4 shadow-sm">
-          <div className="bg-primary/10 text-primary flex h-11 w-11 shrink-0 items-center justify-center rounded-xl">
-            <Maximize2 className="h-5 w-5" />
+          <div className="border-border bg-card flex items-center gap-4 rounded-2xl border p-4 shadow-sm">
+            <div className="bg-primary/10 text-primary flex h-11 w-11 shrink-0 items-center justify-center rounded-xl">
+              <Maximize2 className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
+                Superficie moy.
+              </p>
+              <p className="text-foreground mt-1 text-2xl font-bold">
+                {statsQuery.isPending
+                  ? '...'
+                  : statsQuery.data?.avgSuperficie
+                    ? `${statsQuery.data.avgSuperficie} m²`
+                    : '0 m²'}
+              </p>
+              <p className="text-muted-foreground mt-0.5 text-[11px]">
+                AVG superficie
+              </p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
-              Superficie moy.
-            </p>
-            <p className="text-foreground mt-1 text-2xl font-bold">
-              {statsQuery.isPending
-                ? '...'
-                : statsQuery.data?.avgSuperficie
-                  ? `${statsQuery.data.avgSuperficie} m²`
-                  : '0 m²'}
-            </p>
-            <p className="text-muted-foreground mt-0.5 text-[11px]">
-              AVG superficie
-            </p>
-          </div>
-        </div>
 
-        <div className="border-border bg-card flex items-center gap-4 rounded-2xl border p-4 shadow-sm">
-          <div className="bg-primary/10 text-primary flex h-11 w-11 shrink-0 items-center justify-center rounded-xl">
-            <Coins className="h-5 w-5" />
+          <div className="border-border bg-card flex items-center gap-4 rounded-2xl border p-4 shadow-sm">
+            <div className="bg-primary/10 text-primary flex h-11 w-11 shrink-0 items-center justify-center rounded-xl">
+              <Coins className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
+                Valeur totale
+              </p>
+              <p className="text-foreground mt-1 text-2xl font-bold">
+                {statsQuery.isPending
+                  ? '...'
+                  : statsQuery.data?.sumValeurBien
+                    ? `${statsQuery.data.sumValeurBien.toLocaleString('fr-TN')} DT`
+                    : '0 DT'}
+              </p>
+              <p className="text-muted-foreground mt-0.5 text-[11px]">
+                SUM valeurBien
+              </p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
-              Valeur totale
-            </p>
-            <p className="text-foreground mt-1 text-2xl font-bold">
-              {statsQuery.isPending
-                ? '...'
-                : statsQuery.data?.sumValeurBien
-                  ? `${statsQuery.data.sumValeurBien.toLocaleString('fr-TN')} DT`
-                  : '0 DT'}
-            </p>
-            <p className="text-muted-foreground mt-0.5 text-[11px]">
-              SUM valeurBien
-            </p>
-          </div>
-        </div>
 
-        <div className="border-border bg-card flex items-center gap-4 rounded-2xl border p-4 shadow-sm">
-          <div className="bg-primary/10 text-primary flex h-11 w-11 shrink-0 items-center justify-center rounded-xl">
-            <TrendingUp className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
-              Valeur max
-            </p>
-            <p className="text-foreground mt-1 text-2xl font-bold">
-              {statsQuery.isPending
-                ? '...'
-                : statsQuery.data?.maxValeurBien
-                  ? `${statsQuery.data.maxValeurBien.toLocaleString('fr-TN')} DT`
-                  : '0 DT'}
-            </p>
-            <p className="text-muted-foreground mt-0.5 text-[11px]">
-              MAX valeurBien
-            </p>
+          <div className="border-border bg-card flex items-center gap-4 rounded-2xl border p-4 shadow-sm">
+            <div className="bg-primary/10 text-primary flex h-11 w-11 shrink-0 items-center justify-center rounded-xl">
+              <TrendingUp className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
+                Valeur max
+              </p>
+              <p className="text-foreground mt-1 text-2xl font-bold">
+                {statsQuery.isPending
+                  ? '...'
+                  : statsQuery.data?.maxValeurBien
+                    ? `${statsQuery.data.maxValeurBien.toLocaleString('fr-TN')} DT`
+                    : '0 DT'}
+              </p>
+              <p className="text-muted-foreground mt-0.5 text-[11px]">
+                MAX valeurBien
+              </p>
+            </div>
           </div>
         </div>
-      </div>}
+      )}
 
       {/* Barre de filtres */}
       <div className="border-border bg-card space-y-3 rounded-2xl border p-4">
@@ -446,9 +467,9 @@ export function HabitationsView({
         {/* Filtres numériques */}
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <div>
-            <label className="text-muted-foreground mb-1 block text-xs">
+            <Label className="text-muted-foreground mb-1 block text-xs">
               Sup. min (m²)
-            </label>
+            </Label>
             <Input
               type="number"
               min="0"
@@ -459,9 +480,9 @@ export function HabitationsView({
             />
           </div>
           <div>
-            <label className="text-muted-foreground mb-1 block text-xs">
+            <Label className="text-muted-foreground mb-1 block text-xs">
               Sup. max (m²)
-            </label>
+            </Label>
             <Input
               type="number"
               min="0"
@@ -472,9 +493,9 @@ export function HabitationsView({
             />
           </div>
           <div>
-            <label className="text-muted-foreground mb-1 block text-xs">
+            <Label className="text-muted-foreground mb-1 block text-xs">
               Valeur min (DT)
-            </label>
+            </Label>
             <Input
               type="number"
               min="0"
@@ -485,9 +506,9 @@ export function HabitationsView({
             />
           </div>
           <div>
-            <label className="text-muted-foreground mb-1 block text-xs">
+            <Label className="text-muted-foreground mb-1 block text-xs">
               Valeur max (DT)
-            </label>
+            </Label>
             <Input
               type="number"
               min="0"
@@ -508,17 +529,22 @@ export function HabitationsView({
                 className="bg-primary/10 text-primary flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium"
               >
                 {chip.label}
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon"
                   onClick={() => removeChip(chip.key)}
                   aria-label={`Supprimer le filtre ${chip.label}`}
+                  className="h-4 w-4 p-0"
                 >
                   <X className="h-3 w-3" />
-                </button>
+                </Button>
               </span>
             ))}
-            <button
+            <Button
               type="button"
+              variant="link"
+              size="sm"
               onClick={() => {
                 setSearch('');
                 setTypeFilter('Tous');
@@ -531,7 +557,7 @@ export function HabitationsView({
               className="text-muted-foreground hover:text-foreground text-xs underline"
             >
               Tout effacer
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -642,8 +668,9 @@ export function HabitationsView({
       {/* Bloc repliable Requête SPARQL exécutée (réservé à l'Admin) */}
       {isAdmin && (
         <div className="border-border bg-card rounded-2xl border p-4 shadow-sm">
-          <button
+          <Button
             type="button"
+            variant="ghost"
             onClick={() => setSparqlOpen((prev) => !prev)}
             className="flex w-full items-center justify-between text-left"
           >
@@ -661,7 +688,7 @@ export function HabitationsView({
             ) : (
               <ChevronDown className="text-muted-foreground h-4 w-4" />
             )}
-          </button>
+          </Button>
 
           {sparqlOpen && (
             <div className="mt-3 space-y-3">
@@ -844,7 +871,7 @@ export function HabitationsView({
             <Controller
               control={form.control}
               name="type"
-              render={({ field }) => (
+              render={({ field, fieldState }) => (
                 <Field>
                   <FieldLabel>Type</FieldLabel>
                   <NativeSelect {...field}>
@@ -859,26 +886,35 @@ export function HabitationsView({
                     </NativeSelectOption>
                     <NativeSelectOption value="Villa">Villa</NativeSelectOption>
                   </NativeSelect>
+                  <FieldError
+                    errors={fieldState.error ? [fieldState.error] : []}
+                  />
                 </Field>
               )}
             />
             <Controller
               control={form.control}
               name="adresseBien"
-              render={({ field }) => (
+              render={({ field, fieldState }) => (
                 <Field>
                   <FieldLabel>Adresse</FieldLabel>
                   <Input {...field} />
+                  <FieldError
+                    errors={fieldState.error ? [fieldState.error] : []}
+                  />
                 </Field>
               )}
             />
             <Controller
               control={form.control}
               name="superficie"
-              render={({ field }) => (
+              render={({ field, fieldState }) => (
                 <Field>
                   <FieldLabel>Superficie (m²)</FieldLabel>
                   <Input {...field} type="number" min="1" step="0.1" />
+                  <FieldError
+                    errors={fieldState.error ? [fieldState.error] : []}
+                  />
                 </Field>
               )}
             />
